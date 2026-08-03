@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-primary: #153E45;
+  --brand-primary-hover: #0F3137;
+  --brand-soft: #E9F1F1;
+  --background: #F7F7F4;
+  --surface: #FFFFFF;
+  --text-primary: #171A1C;
+  --text-secondary: #6B7280;
+  --border: #E5E7EB;
+  --status-available: #1f9d55;
+  --status-soon: #f6b93b;
+  --status-busy: #e74c3c;
+  --status-offline: #95a5a6;
+}
+
+body {
+  margin: 0;
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  background: var(--background);
+  color: var(--text-primary);
+}
+
+#root {
+  min-height: 100svh;
+}

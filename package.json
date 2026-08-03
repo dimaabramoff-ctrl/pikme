@@ -1,0 +1,38 @@
+{
+  "name": "pikme",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PickMe monorepo",
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npm run test:e2e --workspaces --if-present",
+    "test:e2e:full": "bash ./scripts/test-e2e-full.sh",
+    "api:generate": "npm run api:generate -w frontend",
+    "api:check": "npm run api:check -w frontend"
+  },
+  "workspaces": [
+    "frontend",
+    "backend",
+    "packages/*"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dimaabramoff-ctrl/pikme.git"
+  },
+  "keywords": [
+    "pickme",
+    "monorepo"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/dimaabramoff-ctrl/pikme/issues"
+  },
+  "homepage": "https://github.com/dimaabramoff-ctrl/pikme#readme",
+  "devDependencies": {
+    "start-server-and-test": "^3.0.12"
+  }
+}
