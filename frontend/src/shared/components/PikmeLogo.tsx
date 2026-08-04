@@ -7,31 +7,20 @@ interface PikmeLogoProps extends SVGProps<SVGSVGElement> {
 export function PikmeLogo({ withWordmark = true, className, ...props }: PikmeLogoProps) {
   return (
     <svg
-      viewBox="0 0 196 40"
+      viewBox="0 0 220 44"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
-      aria-label="Пикми"
+      aria-label="PickMe"
       {...props}
     >
-      <rect x="1" y="1" width="38" height="38" rx="13" fill="#153E45" />
-      <path
-        d="M12.4 28.1C15.3 24.2 17.6 20.6 19.3 17.2M26.4 28.1C23.5 24.2 21.2 20.6 19.5 17.2M14.5 14.4C17.7 14.4 21.2 14.4 24.4 14.4"
-        stroke="white"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-      <circle cx="14.5" cy="11.2" r="1.9" fill="white" />
-      <circle cx="24.4" cy="11.2" r="1.9" fill="white" />
+      <path d="M22 3C14.82 3 9 8.82 9 16C9 25.29 22 39.5 22 39.5C22 39.5 35 25.29 35 16C35 8.82 29.18 3 22 3Z" fill="#0F5A63" />
+      <path d="M17 19.5C18.83 17.12 20.28 14.95 21.35 13M27 19.5C25.17 17.12 23.72 14.95 22.65 13M18.3 11.25C20.32 11.25 22.63 11.25 24.7 11.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="18.3" cy="9.05" r="1.45" fill="white" />
+      <circle cx="24.7" cy="9.05" r="1.45" fill="white" />
+      <circle cx="22" cy="17.8" r="2.8" fill="#0B3E45" opacity="0.22" />
       {withWordmark ? (
-        <>
-          <path d="M55.2 28V11.8H62.6C66.7 11.8 69.3 14 69.3 17.5C69.3 21 66.7 23.2 62.6 23.2H58.8V28H55.2ZM58.8 20.3H62.1C64 20.3 65.5 19.4 65.5 17.5C65.5 15.6 64 14.7 62.1 14.7H58.8V20.3Z" fill="#153E45" />
-          <path d="M71.8 28V11.8H75.3V28H71.8Z" fill="#153E45" />
-          <path d="M82.6 28H79V11.8H82.4V19.5L89.2 11.8H93.6L87.2 18.8L93.9 28H89.6L84.9 21.4L82.6 23.9V28Z" fill="#153E45" />
-          <path d="M95.5 28V11.8H99V28H95.5Z" fill="#153E45" />
-          <path d="M102.4 28V11.8H106L111.2 20.6L116.3 11.8H119.9V28H116.5V17.7L112.4 24.7H109.9L105.8 17.7V28H102.4Z" fill="#153E45" />
-          <path d="M123.4 28V11.8H134.9V14.7H127V18.3H133.8V21.1H127V25.1H135.1V28H123.4Z" fill="#153E45" />
-        </>
+        <text x="49" y="27" fill="#113E45" fontFamily="Manrope, Segoe UI, sans-serif" fontSize="24" fontWeight="700" letterSpacing="0.2">PickMe</text>
       ) : null}
     </svg>
   )

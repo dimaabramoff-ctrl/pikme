@@ -3,14 +3,14 @@
 @tailwind utilities;
 
 :root {
-  --brand-primary: #153E45;
-  --brand-primary-hover: #0F3137;
-  --brand-soft: #E9F1F1;
-  --background: #F7F7F4;
+  --brand-primary: #0f5a63;
+  --brand-primary-hover: #0b4750;
+  --brand-soft: #e5f3f4;
+  --background: #f4f6f7;
   --surface: #FFFFFF;
-  --text-primary: #171A1C;
-  --text-secondary: #6B7280;
-  --border: #E5E7EB;
+  --text-primary: #161c20;
+  --text-secondary: #66737d;
+  --border: #dde4e8;
   --status-available: #1f9d55;
   --status-soon: #f6b93b;
   --status-busy: #e74c3c;

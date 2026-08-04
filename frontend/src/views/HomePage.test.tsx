@@ -15,6 +15,7 @@ describe('HomePage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByPlaceholderText('Поиск салона, услуги или мастера')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Вокруг меня' }).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Ввести адрес' })).toBeInTheDocument()
   })
 })

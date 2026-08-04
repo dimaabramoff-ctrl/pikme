@@ -14,7 +14,7 @@ export function AuthPromptModal({ isOpen, onClose, returnTo }: AuthPromptModalPr
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
       <div className="w-full max-w-md rounded-3xl bg-white p-5 shadow-xl">
-        <h2 className="text-lg font-bold text-slate-900">Чтобы продолжить, войдите в Пикми</h2>
+        <h2 className="text-lg font-bold text-slate-900">Чтобы продолжить, войдите в PickMe</h2>
         <p className="mt-2 text-sm text-slate-600">Сохраните выбранный сценарий и продолжайте после авторизации.</p>
 
         <div className="mt-4 space-y-2">

@@ -65,14 +65,14 @@ test('guest can see nearby catalog from the live app', async ({ page }) => {
   })
 
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Найдите салон рядом' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Салоны рядом с вами' })).toBeVisible()
   await page.getByRole('button', { name: 'Вокруг меня' }).first().click()
   await expect(page.getByRole('heading', { name: 'PickMe Salon Berlin Mitte' }).first()).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Friseur Atelier Berlin' }).first()).toBeVisible()
-  await expect(page.getByText('Google Maps').first()).toBeVisible()
+  await expect(page.getByText('★ 4.4 Google').first()).toBeVisible()
   await expect(page.getByLabel('Метка: Friseur Atelier Berlin')).toBeVisible()
-  await expect(page.getByText('Открыть на карте')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Салоны рядом' })).toBeVisible()
+  await expect(page.getByText('Подробнее')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Салоны рядом', exact: true })).toBeVisible()
   await expect(page.getByText('Studio Nord')).toHaveCount(0)
   await expect(page.getByText('Beauty & Co')).toHaveCount(0)
 })
@@ -131,10 +131,10 @@ test('external-only result does not show PickMe availability controls and keeps 
   await page.getByRole('button', { name: 'Вокруг меня' }).first().click()
 
   await expect(page.getByRole('heading', { name: 'Salon Ludwigslust Zentrum' }).first()).toBeVisible()
-  await expect(page.getByText('Google Maps').first()).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Открыть на карте' }).first()).toHaveAttribute('href', /maps\.google\.com/)
+  await expect(page.getByText('★ 4.7 Google').first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Подробнее' }).first()).toHaveAttribute('href', /maps\.google\.com/)
   await expect(page.getByText('Онлайн-запись доступна')).toHaveCount(0)
-  await expect(page.getByText('Записаться онлайн')).toHaveCount(0)
+  await expect(page.getByText('Запись сейчас')).toHaveCount(0)
 })
 
 test('shows provider unavailable state when nearby API returns 503', async ({ page }) => {

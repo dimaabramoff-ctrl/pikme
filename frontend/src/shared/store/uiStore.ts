@@ -12,7 +12,7 @@ interface UiState {
 
 export const useUiStore = create<UiState>((set) => ({
   viewMode: 'LIST',
-  entityFilter: 'ALL',
+  entityFilter: 'SALON',
   setViewMode: (next) => set({ viewMode: next }),
   setEntityFilter: (next) => set({ entityFilter: next }),
 }))

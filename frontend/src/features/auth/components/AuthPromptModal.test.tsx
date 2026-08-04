@@ -10,6 +10,6 @@ describe('AuthPromptModal', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Чтобы продолжить, войдите в Пикми')).toBeInTheDocument()
+    expect(screen.getByText('Чтобы продолжить, войдите в PickMe')).toBeInTheDocument()
   })
 })

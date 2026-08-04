@@ -95,5 +95,5 @@ test('shows empty state when nearby endpoint returns no places', async ({ page }
   await page.goto('/')
   await page.getByRole('button', { name: 'Вокруг меня' }).first().click()
 
-  await expect(page.getByText('Нет результатов рядом. Измените фильтр или адрес.')).toBeVisible()
+  await expect(page.getByText('По выбранной локации пока нет подходящих результатов.')).toBeVisible()
 })
