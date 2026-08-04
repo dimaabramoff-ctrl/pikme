@@ -6,25 +6,23 @@ import {
   CatalogSearchResult,
 } from './catalog-provider.interface';
 
-interface GooglePlacesResultItem {
-  place_id?: string;
-  name?: string;
-  vicinity?: string;
-  formatted_address?: string;
-  geometry?: {
-    location?: {
-      lat?: number;
-      lng?: number;
-    };
+interface GooglePlaceItem {
+  id?: string;
+  displayName?: {
+    text?: string;
   };
+  formattedAddress?: string;
+  location?: {
+    latitude?: number;
+    longitude?: number;
+  };
+  primaryType?: string;
   rating?: number;
-  user_ratings_total?: number;
-  opening_hours?: {
-    open_now?: boolean;
+  userRatingCount?: number;
+  currentOpeningHours?: {
+    openNow?: boolean;
   };
-  photos?: Array<{
-    photo_reference?: string;
-  }>;
+  googleMapsUri?: string;
 }
 
 interface MapboxFeatureItem {
@@ -41,6 +39,15 @@ interface MapboxFeatureItem {
 @Injectable()
 export class ExternalPlacesProvider implements CatalogProvider {
   constructor(private readonly configService: ConfigService) {}
+
+  private static readonly GOOGLE_FIELD_MASK =
+    'places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.rating,places.userRatingCount,places.currentOpeningHours.openNow,places.googleMapsUri';
+
+  private static readonly GOOGLE_SUPPORTED_TYPES = [
+    'hair_salon',
+    'beauty_salon',
+    'barber_shop',
+  ] as const;
 
   async search(
     query: string,
@@ -87,52 +94,86 @@ export class ExternalPlacesProvider implements CatalogProvider {
       );
     }
 
-    const radiusMeters = Math.round((options?.radiusKm ?? 5) * 1000);
-    const category = options?.category ?? 'hairdresser';
-    const location =
-      options?.latitude != null && options?.longitude != null
-        ? `${options.latitude},${options.longitude}`
-        : undefined;
-
-    const url = new URL(
-      'https://maps.googleapis.com/maps/api/place/nearbysearch/json',
+    const latitude = options?.latitude ?? 52.52;
+    const longitude = options?.longitude ?? 13.405;
+    const radiusMeters = Math.max(
+      100,
+      Math.min(50_000, Math.round((options?.radiusKm ?? 5) * 1000)),
     );
-    url.searchParams.set('key', apiKey);
-    url.searchParams.set('keyword', `${query} ${category}`.trim());
-    url.searchParams.set('rankby', 'distance');
-    if (location) url.searchParams.set('location', location);
-    if (radiusMeters) url.searchParams.set('radius', String(radiusMeters));
+    const includedTypes = this.resolveGoogleIncludedTypes(
+      query,
+      options?.category,
+    );
 
-    const response = await fetch(url.toString(), {
-      signal: AbortSignal.timeout(7_000),
-    });
+    const response = await fetch(
+      'https://places.googleapis.com/v1/places:searchNearby',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': ExternalPlacesProvider.GOOGLE_FIELD_MASK,
+        },
+        body: JSON.stringify({
+          includedTypes,
+          maxResultCount: limit,
+          rankPreference: 'DISTANCE',
+          locationRestriction: {
+            circle: {
+              center: { latitude, longitude },
+              radius: radiusMeters,
+            },
+          },
+        }),
+        signal: AbortSignal.timeout(7_000),
+      },
+    );
+
     if (!response.ok) {
-      throw new Error('Provider unavailable');
+      throw new Error(`Provider unavailable: ${response.status}`);
     }
 
     const payload = (await response.json()) as {
-      results?: GooglePlacesResultItem[];
+      places?: GooglePlaceItem[];
     };
-    return (payload.results ?? []).slice(0, limit).map((item, index) => ({
-      id: `external-google-${item.place_id ?? index}`,
+    return (payload.places ?? []).slice(0, limit).map((item, index) => ({
+      id: `external-google-${item.id ?? index}`,
       source: 'EXTERNAL' as const,
-      name: item.name ?? 'Nearby salon',
-      category: category,
-      address: item.vicinity ?? item.formatted_address ?? null,
-      latitude: item.geometry?.location?.lat ?? null,
-      longitude: item.geometry?.location?.lng ?? null,
+      name: item.displayName?.text ?? 'Nearby salon',
+      category: item.primaryType ?? options?.category ?? 'beauty_salon',
+      address: item.formattedAddress ?? null,
+      latitude: item.location?.latitude ?? null,
+      longitude: item.location?.longitude ?? null,
       rating: item.rating ?? null,
-      reviewCount: item.user_ratings_total ?? null,
-      openNow: item.opening_hours?.open_now ?? null,
+      reviewCount: item.userRatingCount ?? null,
+      openNow: item.currentOpeningHours?.openNow ?? null,
       photoUrl: null,
-      externalUrl: item.place_id
-        ? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(item.place_id)}`
-        : null,
+      externalUrl: item.googleMapsUri ?? null,
       phone: null,
       externalProvider: 'GOOGLE_PLACES',
-      externalPlaceId: item.place_id ?? `google-${index}`,
+      externalPlaceId: item.id ?? `google-${index}`,
       isPickmeConnected: false,
     }));
+  }
+
+  private resolveGoogleIncludedTypes(query: string, category?: string) {
+    const normalized = `${query} ${category ?? ''}`.toLowerCase();
+    const includedTypes = new Set<string>();
+
+    if (normalized.includes('hair')) includedTypes.add('hair_salon');
+    if (normalized.includes('beauty')) includedTypes.add('beauty_salon');
+    if (normalized.includes('barber')) includedTypes.add('barber_shop');
+
+    if (includedTypes.size === 0) {
+      includedTypes.add('hair_salon');
+      includedTypes.add('beauty_salon');
+    }
+
+    return [...includedTypes].filter((type) =>
+      ExternalPlacesProvider.GOOGLE_SUPPORTED_TYPES.includes(
+        type as (typeof ExternalPlacesProvider.GOOGLE_SUPPORTED_TYPES)[number],
+      ),
+    );
   }
 
   private async searchMapbox(

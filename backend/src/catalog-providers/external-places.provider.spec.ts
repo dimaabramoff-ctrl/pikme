@@ -49,15 +49,17 @@ describe('ExternalPlacesProvider', () => {
       ok: true,
       json: () =>
         Promise.resolve({
-          results: [
+          places: [
             {
-              place_id: 'abc123',
-              name: 'Real Salon',
-              vicinity: 'Main St 1',
-              geometry: { location: { lat: 52.5, lng: 13.4 } },
+              id: 'abc123',
+              displayName: { text: 'Real Salon' },
+              formattedAddress: 'Main St 1',
+              location: { latitude: 52.5, longitude: 13.4 },
+              primaryType: 'hair_salon',
               rating: 4.7,
-              user_ratings_total: 123,
-              opening_hours: { open_now: true },
+              userRatingCount: 123,
+              currentOpeningHours: { openNow: true },
+              googleMapsUri: 'https://maps.google.com/?cid=abc123',
             },
           ],
         }),
@@ -80,6 +82,7 @@ describe('ExternalPlacesProvider', () => {
       rating: 4.7,
       reviewCount: 123,
       openNow: true,
+      externalUrl: 'https://maps.google.com/?cid=abc123',
       externalProvider: 'GOOGLE_PLACES',
       externalPlaceId: 'abc123',
       isPickmeConnected: false,
