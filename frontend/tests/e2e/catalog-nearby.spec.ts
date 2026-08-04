@@ -31,20 +31,6 @@ test('guest can see nearby catalog from the live app', async ({ page }) => {
       contentType: 'application/json',
       body: JSON.stringify([
         {
-          id: 'pickme-salon:1',
-          source: 'PICKME',
-          name: 'PickMe Salon Berlin Mitte',
-          address: 'Friedrichstraße 10, Berlin',
-          latitude: 52.521,
-          longitude: 13.406,
-          distanceKm: 0.45,
-          rating: 4.9,
-          reviewCount: 72,
-          openNow: true,
-          isPickmeConnected: true,
-          isBookable: true,
-        },
-        {
           id: 'external-google-2',
           source: 'EXTERNAL',
           externalProvider: 'GOOGLE_PLACES',
@@ -59,6 +45,32 @@ test('guest can see nearby catalog from the live app', async ({ page }) => {
           openNow: false,
           externalUrl: 'https://maps.google.com/?cid=123',
           isPickmeConnected: false,
+          mastersOnShift: null,
+          availableMasters: null,
+          busyMasters: null,
+          nextAvailableSlot: null,
+          minPrice: null,
+          onlineBookingAvailable: false,
+        },
+        {
+          id: 'pickme-salon:1',
+          source: 'PICKME',
+          name: 'PickMe Salon Berlin Mitte',
+          address: 'Friedrichstraße 10, Berlin',
+          latitude: 52.521,
+          longitude: 13.406,
+          distanceKm: 0.45,
+          rating: 4.9,
+          reviewCount: 72,
+          openNow: true,
+          isPickmeConnected: true,
+          isBookable: true,
+          mastersOnShift: 5,
+          availableMasters: 2,
+          busyMasters: 3,
+          nextAvailableSlot: '2026-08-04T10:30:00.000Z',
+          minPrice: 25,
+          onlineBookingAvailable: true,
         },
       ]),
     })
@@ -69,10 +81,23 @@ test('guest can see nearby catalog from the live app', async ({ page }) => {
   await page.getByRole('button', { name: 'Вокруг меня' }).first().click()
   await expect(page.getByRole('heading', { name: 'PickMe Salon Berlin Mitte' }).first()).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Friseur Atelier Berlin' }).first()).toBeVisible()
+  await expect(page.getByText('Мастеров на смене').first()).toBeVisible()
+  await expect(page.getByText('Свободны сейчас').first()).toBeVisible()
+  await expect(page.getByText('Заняты').first()).toBeVisible()
+  await expect(page.getByText('Цена от').first()).toBeVisible()
+  await expect(page.getByText('от €25').first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Записаться' }).first()).toBeVisible()
   await expect(page.getByText('★ 4.4 Google').first()).toBeVisible()
   await expect(page.getByLabel('Метка: Friseur Atelier Berlin')).toBeVisible()
   await expect(page.getByText('Подробнее')).toBeVisible()
+  await expect(page.getByText('Мастеров на смене')).toHaveCount(1)
+  await expect(page.getByText('Свободны сейчас')).toHaveCount(1)
+  await expect(page.getByText('Заняты')).toHaveCount(1)
   await expect(page.getByRole('heading', { name: 'Салоны рядом', exact: true })).toBeVisible()
+
+  const cardsSection = page.getByRole('heading', { name: 'Салоны рядом', exact: true }).locator('xpath=ancestor::section[1]')
+  await expect(cardsSection.locator('article h3').first()).toHaveText('PickMe Salon Berlin Mitte')
+
   await expect(page.getByText('Studio Nord')).toHaveCount(0)
   await expect(page.getByText('Beauty & Co')).toHaveCount(0)
 })
@@ -122,6 +147,12 @@ test('external-only result does not show PickMe availability controls and keeps 
           openNow: false,
           externalUrl: 'https://maps.google.com/?cid=12082193944929702958',
           isPickmeConnected: false,
+          mastersOnShift: null,
+          availableMasters: null,
+          busyMasters: null,
+          nextAvailableSlot: null,
+          minPrice: null,
+          onlineBookingAvailable: false,
         },
       ]),
     })

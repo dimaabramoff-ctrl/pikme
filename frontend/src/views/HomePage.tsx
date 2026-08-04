@@ -36,8 +36,26 @@ function formatGoogleRating(item: NearbyCatalogItem) {
 
 function formatNearestSlot(item: NearbyCatalogItem) {
   if (!item.isPickmeConnected) return null
-  if (item.isBookable) return 'Сейчас доступна запись'
-  return 'Ближайшее время в профиле'
+  if (!item.nextAvailableSlot) return 'По запросу'
+
+  const date = new Date(item.nextAvailableSlot)
+  if (Number.isNaN(date.getTime())) return 'По запросу'
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+function formatOperationalValue(value: number | null) {
+  return value == null ? 'По запросу' : String(value)
+}
+
+function formatMinPrice(value: number | null) {
+  if (value == null) return 'По запросу'
+  return `от €${value}`
 }
 
 function getPhotoUrl(item: NearbyCatalogItem) {
@@ -236,6 +254,7 @@ export function HomePage() {
     const photoUrl = getPhotoUrl(item)
     const linkTo = `/salons/${item.id.replace('pickme-salon:', '')}`
     const nearestSlot = formatNearestSlot(item)
+    const ctaLabel = item.onlineBookingAvailable ? 'Записаться' : 'Выбрать'
 
     return (
       <article key={item.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -265,31 +284,33 @@ export function HomePage() {
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
           <div className="rounded-2xl bg-slate-50 px-3 py-2">
-            <div className="text-[11px] text-slate-500">На смене</div>
-            <div className="mt-0.5 font-semibold text-slate-800">—</div>
+            <div className="text-[11px] text-slate-500">Мастеров на смене</div>
+            <div className="mt-0.5 font-semibold text-slate-800">{formatOperationalValue(item.mastersOnShift)}</div>
           </div>
           <div className="rounded-2xl bg-slate-50 px-3 py-2">
-            <div className="text-[11px] text-slate-500">Свободны</div>
-            <div className="mt-0.5 font-semibold text-slate-800">—</div>
+            <div className="text-[11px] text-slate-500">Свободны сейчас</div>
+            <div className="mt-0.5 font-semibold text-slate-800">{formatOperationalValue(item.availableMasters)}</div>
           </div>
           <div className="rounded-2xl bg-slate-50 px-3 py-2">
             <div className="text-[11px] text-slate-500">Заняты</div>
-            <div className="mt-0.5 font-semibold text-slate-800">—</div>
+            <div className="mt-0.5 font-semibold text-slate-800">{formatOperationalValue(item.busyMasters)}</div>
           </div>
           <div className="rounded-2xl bg-slate-50 px-3 py-2">
-            <div className="text-[11px] text-slate-500">Запись сейчас</div>
-            <div className="mt-0.5 font-semibold text-emerald-700">{item.isBookable ? 'Да' : 'Нет'}</div>
+            <div className="text-[11px] text-slate-500">Ближайшее время</div>
+            <div className="mt-0.5 font-semibold text-slate-800">{nearestSlot}</div>
+          </div>
+          <div className="rounded-2xl bg-slate-50 px-3 py-2">
+            <div className="text-[11px] text-slate-500">Цена от</div>
+            <div className="mt-0.5 font-semibold text-slate-800">{formatMinPrice(item.minPrice)}</div>
           </div>
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-1 text-xs text-slate-600">
-            <Clock3 size={12} /> {nearestSlot}
-          </span>
+          <span className="inline-flex items-center gap-1 text-xs text-slate-600"><Clock3 size={12} /> PickMe Partner</span>
           <Link to={linkTo} className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700">
-            Выбрать
+            {ctaLabel}
           </Link>
         </div>
       </article>

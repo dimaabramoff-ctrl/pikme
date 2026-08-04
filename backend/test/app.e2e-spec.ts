@@ -61,12 +61,56 @@ describe('Auth and RBAC (e2e)', () => {
       source: unknown;
       name: unknown;
       isPickmeConnected: unknown;
+      mastersOnShift: unknown;
+      availableMasters: unknown;
+      busyMasters: unknown;
+      nextAvailableSlot: unknown;
+      minPrice: unknown;
+      onlineBookingAvailable: unknown;
     };
     expect(typeof firstItem.id).toBe('string');
     expect(typeof firstItem.source).toBe('string');
     expect(['PICKME', 'EXTERNAL']).toContain(firstItem.source);
     expect(typeof firstItem.name).toBe('string');
     expect(typeof firstItem.isPickmeConnected).toBe('boolean');
+    expect(
+      firstItem.mastersOnShift === null ||
+        typeof firstItem.mastersOnShift === 'number',
+    ).toBe(true);
+    expect(
+      firstItem.availableMasters === null ||
+        typeof firstItem.availableMasters === 'number',
+    ).toBe(true);
+    expect(
+      firstItem.busyMasters === null ||
+        typeof firstItem.busyMasters === 'number',
+    ).toBe(true);
+    expect(
+      firstItem.nextAvailableSlot === null ||
+        typeof firstItem.nextAvailableSlot === 'string',
+    ).toBe(true);
+    expect(
+      firstItem.minPrice === null || typeof firstItem.minPrice === 'number',
+    ).toBe(true);
+    expect(typeof firstItem.onlineBookingAvailable).toBe('boolean');
+
+    const pickmeItem = (response.body as Array<Record<string, unknown>>).find(
+      (item) => item.source === 'PICKME',
+    );
+    const externalItem = (response.body as Array<Record<string, unknown>>).find(
+      (item) => item.source === 'EXTERNAL',
+    );
+    expect(pickmeItem).toBeDefined();
+    expect(externalItem).toBeDefined();
+
+    if (externalItem) {
+      expect(externalItem.mastersOnShift).toBeNull();
+      expect(externalItem.availableMasters).toBeNull();
+      expect(externalItem.busyMasters).toBeNull();
+      expect(externalItem.nextAvailableSlot).toBeNull();
+      expect(externalItem.minPrice).toBeNull();
+      expect(externalItem.onlineBookingAvailable).toBe(false);
+    }
   });
 
   it('GET /api/catalog/nearby returns 400 for invalid radius/coordinates', async () => {

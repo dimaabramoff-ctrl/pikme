@@ -15,6 +15,12 @@ export interface CatalogSearchResult {
   externalProvider?: string | null;
   externalPlaceId?: string | null;
   isPickmeConnected: boolean;
+  mastersOnShift?: number | null;
+  availableMasters?: number | null;
+  busyMasters?: number | null;
+  nextAvailableSlot?: string | null;
+  minPrice?: number | null;
+  onlineBookingAvailable?: boolean;
 }
 
 export class CatalogProviderConfigurationError extends Error {
