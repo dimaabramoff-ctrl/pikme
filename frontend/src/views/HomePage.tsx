@@ -10,6 +10,12 @@ type FilterMode = 'freeNow' | 'nearby' | 'rating' | 'price' | 'today'
 type ViewMode = 'list' | 'map'
 type GeoState = 'idle' | 'loading' | 'denied' | 'timeout' | 'unavailable'
 
+interface ApiLikeError {
+  statusCode?: number
+  code?: string
+  message?: string
+}
+
 function formatDistance(distanceKm?: number | null) {
   if (distanceKm == null) return 'Рядом'
   if (distanceKm < 1) return 'Менее 1 км'
@@ -30,39 +36,10 @@ function getSpecialization(item: NearbyCatalogItem) {
   return 'Стрижки и укладки'
 }
 
-function createStableMetric(id: string, min: number, max: number) {
-  let hash = 0
-  for (let i = 0; i < id.length; i += 1) {
-    hash = (hash * 31 + id.charCodeAt(i)) >>> 0
-  }
-  const range = max - min + 1
-  return min + (hash % range)
-}
-
-function getPriceFrom(item: NearbyCatalogItem) {
-  if (getEntityType(item) === 'master') return createStableMetric(item.id, 28, 65)
-  return createStableMetric(item.id, 35, 95)
-}
-
-function getWorkingMasters(item: NearbyCatalogItem) {
-  return createStableMetric(item.id, 2, 12)
-}
-
-function getFreeMasters(item: NearbyCatalogItem) {
-  return createStableMetric(item.id + '-free', 1, 5)
-}
-
-function getNearestTime(item: NearbyCatalogItem) {
-  if (item.isBookable) return 'Сегодня, 14:30'
-  const hour = createStableMetric(item.id + '-hour', 15, 20)
-  const minute = createStableMetric(item.id + '-minute', 0, 1) === 0 ? '00' : '30'
-  return `Сегодня, ${hour}:${minute}`
-}
-
 function getStatusLabel(item: NearbyCatalogItem) {
   if (item.openNow === true) return 'Открыто'
   if (item.openNow === false) return 'Закрыто'
-  return item.isBookable ? 'Свободен' : 'Статус не указан'
+  return 'Статус не указан'
 }
 
 function getPhotoUrl(item: NearbyCatalogItem) {
@@ -76,6 +53,31 @@ function getGeoErrorMessage(state: GeoState) {
   if (state === 'unavailable') return 'Геолокация недоступна на этом устройстве.'
   if (state === 'loading') return 'Определяем вашу геопозицию...'
   return 'Нажмите "Вокруг меня", чтобы загрузить реальные салоны рядом.'
+}
+
+function extractApiError(error: unknown): ApiLikeError | null {
+  if (!error || typeof error !== 'object') return null
+  const candidate = error as Record<string, unknown>
+  return {
+    statusCode: typeof candidate.statusCode === 'number' ? candidate.statusCode : undefined,
+    code: typeof candidate.code === 'string' ? candidate.code : undefined,
+    message: typeof candidate.message === 'string' ? candidate.message : undefined,
+  }
+}
+
+function getCatalogErrorMessage(error: unknown) {
+  const apiError = extractApiError(error)
+  if (!apiError) return 'Не удалось загрузить каталог рядом.'
+  if (apiError.code === 'CATALOG_PROVIDER_UNAVAILABLE' || apiError.statusCode === 503) {
+    return 'Google Places временно недоступен. Повторите попытку через минуту.'
+  }
+  if (apiError.code === 'CATALOG_PROVIDER_NOT_CONFIGURED') {
+    return 'Google Places не настроен на сервере.'
+  }
+  if (apiError.code === 'NETWORK_ERROR') {
+    return 'Сервер недоступен. Проверьте соединение и повторите попытку.'
+  }
+  return apiError.message || 'Не удалось загрузить каталог рядом.'
 }
 
 export function HomePage() {
@@ -134,20 +136,14 @@ export function HomePage() {
 
   const sortedItems = useMemo(() => {
     const items = [...filteredItems]
-    switch (activeFilter) {
-      case 'rating':
-        items.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
-        break
-      case 'price':
-        items.sort((a, b) => getPriceFrom(a) - getPriceFrom(b))
-        break
-      case 'nearby':
-      default:
-        items.sort((a, b) => (a.distanceKm ?? Number.MAX_SAFE_INTEGER) - (b.distanceKm ?? Number.MAX_SAFE_INTEGER))
-        break
-    }
+    items.sort((a, b) => {
+      if (a.isPickmeConnected !== b.isPickmeConnected) {
+        return a.isPickmeConnected ? -1 : 1
+      }
+      return (a.distanceKm ?? Number.MAX_SAFE_INTEGER) - (b.distanceKm ?? Number.MAX_SAFE_INTEGER)
+    })
     return items
-  }, [activeFilter, filteredItems])
+  }, [filteredItems])
 
   const handleRequestLocation = () => {
     if (!navigator.geolocation) {
@@ -239,18 +235,18 @@ export function HomePage() {
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">
                 <Star size={12} /> {formatRating(item)}
               </span>
-              <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">Источник: {item.externalProvider ?? 'PickMe'}</span>
+              {isExternal ? <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">Google Maps</span> : <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">PickMe</span>}
               {item.reviewCount != null ? (
-                <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">{item.reviewCount} отзывов источника</span>
+                <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">{item.reviewCount} отзывов</span>
               ) : null}
-              {item.isPickmeConnected ? (
+              {isExternal ? (
+                <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">Статус: {getStatusLabel(item)}</span>
+              ) : (
                 <>
-                  <span className="rounded-full bg-brand-50 px-2 py-1 font-semibold text-brand-700">от {getPriceFrom(item)} €</span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">
-                    <Clock3 size={12} /> {getNearestTime(item)}
-                  </span>
+                  <span className="rounded-full bg-brand-50 px-2 py-1 font-semibold text-brand-700">Цена: в профиле</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700"><Clock3 size={12} /> {item.isBookable ? 'Онлайн-запись доступна' : 'Запись по запросу'}</span>
                 </>
-              ) : null}
+              )}
             </div>
           </div>
         </div>
@@ -267,13 +263,13 @@ export function HomePage() {
                 <div className="mt-0.5 font-semibold text-slate-800">{getSpecialization(item)}</div>
               </div>
               <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                <div className="text-[11px] text-slate-500">Запись PickMe</div>
-                <div className="mt-0.5 font-semibold text-slate-800">Недоступна</div>
+                <div className="text-[11px] text-slate-500">Рейтинг источника</div>
+                <div className="mt-0.5 font-semibold text-slate-800">Google Maps{item.rating != null ? ` · ${item.rating.toFixed(1)}` : ''}</div>
               </div>
               <a
                 href={linkTo}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="inline-flex items-center justify-center rounded-2xl border border-slate-300 px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
               >
                 Открыть на карте
@@ -286,33 +282,33 @@ export function HomePage() {
                 <div className="mt-0.5 font-semibold text-slate-800">{getSpecialization(item)}</div>
               </div>
               <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                <div className="text-[11px] text-slate-500">Статус</div>
-                <div className="mt-0.5 font-semibold text-emerald-700">{getStatusLabel(item)}</div>
+                <div className="text-[11px] text-slate-500">Доступность</div>
+                <div className="mt-0.5 font-semibold text-emerald-700">{item.isBookable ? 'Онлайн-запись' : 'По запросу'}</div>
               </div>
               <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                <div className="text-[11px] text-slate-500">Источник</div>
-                <div className="mt-0.5 font-semibold text-slate-800">Пикми</div>
+                <div className="text-[11px] text-slate-500">Цены</div>
+                <div className="mt-0.5 font-semibold text-slate-800">В профиле</div>
               </div>
               <Link to={linkTo} className="inline-flex items-center justify-center rounded-2xl bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700">
-                Выбрать
+                {item.isBookable ? 'Записаться онлайн' : 'Подробнее'}
               </Link>
             </>
           ) : (
             <>
               <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                <div className="text-[11px] text-slate-500">Мастеров</div>
-                <div className="mt-0.5 font-semibold text-slate-800">{getWorkingMasters(item)}</div>
+                <div className="text-[11px] text-slate-500">Доступность</div>
+                <div className="mt-0.5 font-semibold text-emerald-700">{item.isBookable ? 'Онлайн-запись' : 'По запросу'}</div>
               </div>
               <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                <div className="text-[11px] text-slate-500">Свободно</div>
-                <div className="mt-0.5 font-semibold text-emerald-700">{Math.min(getFreeMasters(item), getWorkingMasters(item))}</div>
+                <div className="text-[11px] text-slate-500">Цены</div>
+                <div className="mt-0.5 font-semibold text-slate-800">В профиле</div>
               </div>
               <div className="rounded-2xl bg-slate-50 px-3 py-2">
                 <div className="text-[11px] text-slate-500">Статус</div>
                 <div className="mt-0.5 font-semibold text-slate-800">{getStatusLabel(item)}</div>
               </div>
               <Link to={linkTo} className="inline-flex items-center justify-center rounded-2xl bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700">
-                Открыть
+                {item.isBookable ? 'Записаться онлайн' : 'Подробнее'}
               </Link>
             </>
           )}
@@ -405,7 +401,7 @@ export function HomePage() {
               <div className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600">Разрешите геолокацию, чтобы загрузить реальные салоны рядом.</div>
             ) : null}
             {isPending ? <div className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600">Загружаем ближайшие варианты...</div> : null}
-            {isError ? <div className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">Ошибка загрузки: {error instanceof Error ? error.message : 'не удалось загрузить каталог'}. <button onClick={() => refetch()} className="font-semibold underline">Повторить</button></div> : null}
+            {isError ? <div className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">{getCatalogErrorMessage(error)} <button onClick={() => refetch()} className="font-semibold underline">Повторить</button></div> : null}
             {!isPending && !isError && sortedItems.length === 0 ? <div className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600">Нет результатов рядом. Измените фильтр или адрес.</div> : null}
             {sortedItems.map(renderCard)}
           </section>

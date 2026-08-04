@@ -16,6 +16,54 @@ interface NearbyMapProps {
 
 export function NearbyMap({ latitude, longitude, address, onRequestLocation, items, isLoading, isError, onRetry, compact = false }: NearbyMapProps) {
   const locationLabel = address || 'Ваш район'
+
+  const markerItems = useMemo(
+    () =>
+      items.filter(
+        (item) => item.latitude != null && item.longitude != null,
+      ),
+    [items],
+  )
+
+  const bounds = useMemo(() => {
+    const coordinates: Array<{ latitude: number; longitude: number }> = []
+    if (latitude != null && longitude != null) {
+      coordinates.push({ latitude, longitude })
+    }
+    markerItems.forEach((item) => {
+      coordinates.push({ latitude: item.latitude as number, longitude: item.longitude as number })
+    })
+
+    if (coordinates.length === 0) return null
+
+    const minLat = Math.min(...coordinates.map((point) => point.latitude))
+    const maxLat = Math.max(...coordinates.map((point) => point.latitude))
+    const minLon = Math.min(...coordinates.map((point) => point.longitude))
+    const maxLon = Math.max(...coordinates.map((point) => point.longitude))
+
+    const latPad = Math.max((maxLat - minLat) * 0.25, 0.005)
+    const lonPad = Math.max((maxLon - minLon) * 0.25, 0.005)
+
+    return {
+      minLat: minLat - latPad,
+      maxLat: maxLat + latPad,
+      minLon: minLon - lonPad,
+      maxLon: maxLon + lonPad,
+    }
+  }, [latitude, longitude, markerItems])
+
+  const project = (pointLat: number, pointLon: number) => {
+    if (!bounds) return { left: 50, top: 50 }
+    const lonRange = Math.max(bounds.maxLon - bounds.minLon, 0.0001)
+    const latRange = Math.max(bounds.maxLat - bounds.minLat, 0.0001)
+    const left = ((pointLon - bounds.minLon) / lonRange) * 100
+    const top = ((bounds.maxLat - pointLat) / latRange) * 100
+    return {
+      left: Math.min(Math.max(left, 2), 98),
+      top: Math.min(Math.max(top, 2), 98),
+    }
+  }
+
   const embedUrl = useMemo(() => {
     if (latitude == null || longitude == null) return null
     const lat = latitude
@@ -36,7 +84,7 @@ export function NearbyMap({ latitude, longitude, address, onRequestLocation, ite
         </button>
       </div>
 
-      <div className={`mt-4 overflow-hidden rounded-[22px] border border-slate-200 bg-slate-50 ${compact ? 'h-[320px]' : 'h-[460px]'}`}>
+      <div className={`relative mt-4 overflow-hidden rounded-[22px] border border-slate-200 bg-slate-50 ${compact ? 'h-[320px]' : 'h-[460px]'}`}>
         {embedUrl ? (
           <iframe
             title="Карта рядом"
@@ -50,14 +98,40 @@ export function NearbyMap({ latitude, longitude, address, onRequestLocation, ite
             Определите локацию, чтобы увидеть реальные салоны на карте.
           </div>
         )}
+
+        {embedUrl && bounds ? (
+          <div className="pointer-events-none absolute inset-0">
+            {latitude != null && longitude != null ? (
+              <div
+                className="absolute -translate-x-1/2 -translate-y-1/2"
+                style={project(latitude, longitude)}
+                aria-label="Ваша позиция"
+              >
+                <div className="h-4 w-4 rounded-full border-2 border-white bg-blue-600 shadow" />
+              </div>
+            ) : null}
+
+            {markerItems.map((item) => (
+              <div
+                key={`marker-${item.id}`}
+                className="absolute -translate-x-1/2 -translate-y-1/2"
+                style={project(item.latitude as number, item.longitude as number)}
+                aria-label={`Метка: ${item.name}`}
+                title={item.name}
+              >
+                <div className={`h-3.5 w-3.5 rounded-full border border-white shadow ${item.isPickmeConnected ? 'bg-emerald-600' : 'bg-amber-500'}`} />
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
         <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-brand-700">
           <Navigation size={12} /> {locationLabel}
         </span>
-        <span className="rounded-full bg-slate-100 px-2.5 py-1">Салоны</span>
-        <span className="rounded-full bg-slate-100 px-2.5 py-1">На дом</span>
+        <span className="rounded-full bg-slate-100 px-2.5 py-1">PickMe маркеры</span>
+        <span className="rounded-full bg-slate-100 px-2.5 py-1">Google Maps маркеры</span>
       </div>
 
       {isLoading ? <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-sm text-slate-600">Обновляем ближайшие варианты...</div> : null}

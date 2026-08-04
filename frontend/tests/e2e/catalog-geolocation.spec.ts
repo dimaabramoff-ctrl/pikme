@@ -23,6 +23,42 @@ test('shows a clear message when geolocation permission is denied', async ({ pag
   await expect(page.getByText('Доступ к геолокации запрещен. Включите разрешение в браузере.')).toBeVisible()
 })
 
+test('shows a clear message when geolocation is unavailable in browser', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: undefined,
+    })
+  })
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Вокруг меня' }).first().click()
+  await expect(page.getByText('Геолокация недоступна на этом устройстве.')).toBeVisible()
+})
+
+test('shows timeout message when geolocation request times out', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: (_success: PositionCallback, error?: PositionErrorCallback) => {
+          error?.({
+            code: 3,
+            message: 'Timeout',
+            PERMISSION_DENIED: 1,
+            POSITION_UNAVAILABLE: 2,
+            TIMEOUT: 3,
+          } as GeolocationPositionError)
+        },
+      },
+    })
+  })
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Вокруг меня' }).first().click()
+  await expect(page.getByText('Не удалось получить координаты вовремя. Повторите попытку.')).toBeVisible()
+})
+
 test('shows empty state when nearby endpoint returns no places', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'geolocation', {
