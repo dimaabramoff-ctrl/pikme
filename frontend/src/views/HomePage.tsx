@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Clock3, Map, MapPin, Search, Star } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -6,10 +6,9 @@ import { NearbyMap } from '../features/catalog/components/NearbyMap'
 import { type NearbyCatalogItem, nearbyApi } from '../features/catalog/api/nearbyApi'
 import { useUiStore } from '../shared/store/uiStore'
 
-const DEFAULT_LOCATION = { latitude: 53.3191, longitude: 11.4836, address: 'Ludwigslust' }
-
 type FilterMode = 'freeNow' | 'nearby' | 'rating' | 'price' | 'today'
 type ViewMode = 'list' | 'map'
+type GeoState = 'idle' | 'loading' | 'denied' | 'timeout' | 'unavailable'
 
 function formatDistance(distanceKm?: number | null) {
   if (distanceKm == null) return 'Рядом'
@@ -19,11 +18,11 @@ function formatDistance(distanceKm?: number | null) {
 
 function formatRating(item: NearbyCatalogItem) {
   if (item.rating && item.rating > 0) return item.rating.toFixed(1)
-  return '4.6'
+  return 'n/a'
 }
 
 function getEntityType(item: NearbyCatalogItem): 'salon' | 'master' {
-  return item.isPrivate ? 'master' : 'salon'
+  return item.id.startsWith('pickme-master:') ? 'master' : 'salon'
 }
 
 function getSpecialization(item: NearbyCatalogItem) {
@@ -41,7 +40,7 @@ function createStableMetric(id: string, min: number, max: number) {
 }
 
 function getPriceFrom(item: NearbyCatalogItem) {
-  if (item.isPrivate) return createStableMetric(item.id, 28, 65)
+  if (getEntityType(item) === 'master') return createStableMetric(item.id, 28, 65)
   return createStableMetric(item.id, 35, 95)
 }
 
@@ -61,35 +60,44 @@ function getNearestTime(item: NearbyCatalogItem) {
 }
 
 function getStatusLabel(item: NearbyCatalogItem) {
-  if (item.isBookable) return 'Свободен'
-  if (item.openingStatus && item.openingStatus.trim().length > 0) return item.openingStatus
-  return 'По записи'
+  if (item.openNow === true) return 'Открыто'
+  if (item.openNow === false) return 'Закрыто'
+  return item.isBookable ? 'Свободен' : 'Статус не указан'
 }
 
 function getPhotoUrl(item: NearbyCatalogItem) {
-  if (item.photoReference && item.photoReference.startsWith('http')) return item.photoReference
+  if (item.photoUrl && item.photoUrl.startsWith('http')) return item.photoUrl
   return null
+}
+
+function getGeoErrorMessage(state: GeoState) {
+  if (state === 'denied') return 'Доступ к геолокации запрещен. Включите разрешение в браузере.'
+  if (state === 'timeout') return 'Не удалось получить координаты вовремя. Повторите попытку.'
+  if (state === 'unavailable') return 'Геолокация недоступна на этом устройстве.'
+  if (state === 'loading') return 'Определяем вашу геопозицию...'
+  return 'Нажмите "Вокруг меня", чтобы загрузить реальные салоны рядом.'
 }
 
 export function HomePage() {
   const { entityFilter } = useUiStore()
   const [locationState, setLocationState] = useState<{ latitude: number | null; longitude: number | null; address: string }>({
-    latitude: DEFAULT_LOCATION.latitude,
-    longitude: DEFAULT_LOCATION.longitude,
-    address: DEFAULT_LOCATION.address,
+    latitude: null,
+    longitude: null,
+    address: 'Локация не выбрана',
   })
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState<FilterMode>('nearby')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
-  const [isManualLocation, setIsManualLocation] = useState(false)
+  const [geoState, setGeoState] = useState<GeoState>('idle')
 
-  const { data, isPending, isError, refetch } = useQuery({
-    queryKey: ['home-nearby', locationState.latitude, locationState.longitude, entityFilter],
+  const { data, isPending, isError, refetch, error } = useQuery({
+    queryKey: ['home-nearby', locationState.latitude, locationState.longitude, entityFilter, searchQuery],
     queryFn: () =>
       nearbyApi.list({
-        latitude: locationState.latitude ?? DEFAULT_LOCATION.latitude,
-        longitude: locationState.longitude ?? DEFAULT_LOCATION.longitude,
-        radiusKm: entityFilter === 'MASTER' ? 8 : 6,
+        latitude: locationState.latitude as number,
+        longitude: locationState.longitude as number,
+        radius: entityFilter === 'MASTER' ? 8000 : 6000,
+        query: searchQuery.trim() || undefined,
         category: 'hairdresser',
         limit: 30,
       }),
@@ -108,17 +116,17 @@ export function HomePage() {
   }, [nearbyItems, searchQuery])
 
   const typedItems = useMemo(() => {
-    if (entityFilter === 'MASTER') return searchedItems.filter((item) => item.isPrivate)
-    if (entityFilter === 'SALON') return searchedItems.filter((item) => !item.isPrivate)
+    if (entityFilter === 'MASTER') return searchedItems.filter((item) => getEntityType(item) === 'master')
+    if (entityFilter === 'SALON') return searchedItems.filter((item) => getEntityType(item) === 'salon')
     return searchedItems
   }, [entityFilter, searchedItems])
 
   const filteredItems = useMemo(() => {
     switch (activeFilter) {
       case 'freeNow':
-        return typedItems.filter((item) => item.isBookable)
+        return typedItems.filter((item) => item.isPickmeConnected && item.isBookable)
       case 'today':
-        return typedItems.filter((item) => item.isBookable || (item.openingStatus?.toLowerCase().includes('open') ?? false))
+        return typedItems.filter((item) => item.isBookable || item.openNow === true)
       default:
         return typedItems
     }
@@ -141,24 +149,13 @@ export function HomePage() {
     return items
   }, [activeFilter, filteredItems])
 
-  useEffect(() => {
-    if (isManualLocation || navigator.geolocation == null) return
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocationState({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          address: 'Ваш район',
-        })
-      },
-      () => undefined,
-      { timeout: 7_000, enableHighAccuracy: true },
-    )
-  }, [isManualLocation])
-
   const handleRequestLocation = () => {
-    if (!navigator.geolocation) return
+    if (!navigator.geolocation) {
+      setGeoState('unavailable')
+      return
+    }
+
+    setGeoState('loading')
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -167,9 +164,19 @@ export function HomePage() {
           longitude: position.coords.longitude,
           address: 'Ваш район',
         })
-        setIsManualLocation(true)
+        setGeoState('idle')
       },
-      () => undefined,
+      (geoError) => {
+        if (geoError.code === geoError.PERMISSION_DENIED) {
+          setGeoState('denied')
+          return
+        }
+        if (geoError.code === geoError.TIMEOUT) {
+          setGeoState('timeout')
+          return
+        }
+        setGeoState('unavailable')
+      },
       { timeout: 7_000, enableHighAccuracy: true },
     )
   }
@@ -179,8 +186,12 @@ export function HomePage() {
     if (!typedAddress) return
     const normalized = typedAddress.trim()
     if (!normalized) return
-    setLocationState((prev) => ({ ...prev, address: normalized }))
-    setIsManualLocation(true)
+    setLocationState((prev) => ({ ...prev, address: normalized === 'Локация не выбрана' ? prev.address : normalized }))
+    setSearchQuery(normalized)
+
+    if (locationState.latitude == null || locationState.longitude == null) {
+      handleRequestLocation()
+    }
   }
 
   const cardsLabel = entityFilter === 'MASTER' ? 'Мастера на дом рядом' : 'Салоны рядом'
@@ -188,12 +199,12 @@ export function HomePage() {
 
   const renderCard = (item: NearbyCatalogItem) => {
     const isMaster = getEntityType(item) === 'master'
-    const linkTo =
-      item.sourceType === 'EXTERNAL'
-        ? '#'
-        : isMaster
-          ? `/masters/${item.id.replace('pickme-master:', '')}`
-          : `/salons/${item.id.replace('pickme-salon:', '')}`
+    const isExternal = item.source === 'EXTERNAL'
+    const linkTo = isExternal
+      ? item.externalUrl || '#'
+      : isMaster
+        ? `/masters/${item.id.replace('pickme-master:', '')}`
+        : `/salons/${item.id.replace('pickme-salon:', '')}`
 
     const photoUrl = getPhotoUrl(item)
 
@@ -213,7 +224,11 @@ export function HomePage() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <h3 className="truncate text-base font-semibold text-slate-900">{item.name}</h3>
-                  <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">Пикми</span>
+                  {item.isPickmeConnected ? (
+                    <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">PickMe ✓</span>
+                  ) : (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">Внешний источник</span>
+                  )}
                 </div>
                 <p className="mt-1 truncate text-xs text-slate-500">{item.address || 'Адрес уточняется'}</p>
               </div>
@@ -224,16 +239,47 @@ export function HomePage() {
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">
                 <Star size={12} /> {formatRating(item)}
               </span>
-              <span className="rounded-full bg-brand-50 px-2 py-1 font-semibold text-brand-700">от {getPriceFrom(item)} €</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">
-                <Clock3 size={12} /> {getNearestTime(item)}
-              </span>
+              <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">Источник: {item.externalProvider ?? 'PickMe'}</span>
+              {item.reviewCount != null ? (
+                <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">{item.reviewCount} отзывов источника</span>
+              ) : null}
+              {item.isPickmeConnected ? (
+                <>
+                  <span className="rounded-full bg-brand-50 px-2 py-1 font-semibold text-brand-700">от {getPriceFrom(item)} €</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">
+                    <Clock3 size={12} /> {getNearestTime(item)}
+                  </span>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-          {isMaster ? (
+          {!item.isPickmeConnected ? (
+            <>
+              <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                <div className="text-[11px] text-slate-500">Статус</div>
+                <div className="mt-0.5 font-semibold text-slate-800">{getStatusLabel(item)}</div>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                <div className="text-[11px] text-slate-500">Категория</div>
+                <div className="mt-0.5 font-semibold text-slate-800">{getSpecialization(item)}</div>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                <div className="text-[11px] text-slate-500">Запись PickMe</div>
+                <div className="mt-0.5 font-semibold text-slate-800">Недоступна</div>
+              </div>
+              <a
+                href={linkTo}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                Открыть на карте
+              </a>
+            </>
+          ) : isMaster ? (
             <>
               <div className="rounded-2xl bg-slate-50 px-3 py-2">
                 <div className="text-[11px] text-slate-500">Специализация</div>
@@ -245,7 +291,7 @@ export function HomePage() {
               </div>
               <div className="rounded-2xl bg-slate-50 px-3 py-2">
                 <div className="text-[11px] text-slate-500">Источник</div>
-                <div className="mt-0.5 font-semibold text-slate-800">{item.sourceType === 'EXTERNAL' ? 'Партнер' : 'Пикми'}</div>
+                <div className="mt-0.5 font-semibold text-slate-800">Пикми</div>
               </div>
               <Link to={linkTo} className="inline-flex items-center justify-center rounded-2xl bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700">
                 Выбрать
@@ -295,12 +341,14 @@ export function HomePage() {
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <button onClick={handleRequestLocation} className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700">
             <MapPin size={16} />
-            Вокруг меня
+            {geoState === 'loading' ? 'Определяем...' : 'Вокруг меня'}
           </button>
           <button onClick={handleManualAddress} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50">
             Ввести адрес
           </button>
         </div>
+
+        <p className="mt-2 text-xs text-slate-500">{getGeoErrorMessage(geoState)}</p>
 
         <label className="mt-3 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
           <Search size={18} className="text-slate-400" />
@@ -353,8 +401,11 @@ export function HomePage() {
               <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">{visibleCount}</span>
             </div>
 
+            {locationState.latitude == null || locationState.longitude == null ? (
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600">Разрешите геолокацию, чтобы загрузить реальные салоны рядом.</div>
+            ) : null}
             {isPending ? <div className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600">Загружаем ближайшие варианты...</div> : null}
-            {isError ? <div className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">Ошибка загрузки. <button onClick={() => refetch()} className="font-semibold underline">Повторить</button></div> : null}
+            {isError ? <div className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">Ошибка загрузки: {error instanceof Error ? error.message : 'не удалось загрузить каталог'}. <button onClick={() => refetch()} className="font-semibold underline">Повторить</button></div> : null}
             {!isPending && !isError && sortedItems.length === 0 ? <div className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600">Нет результатов рядом. Измените фильтр или адрес.</div> : null}
             {sortedItems.map(renderCard)}
           </section>

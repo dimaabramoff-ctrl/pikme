@@ -12,7 +12,8 @@ describe('mergeNearbyResults', () => {
           latitude: 53.32,
           longitude: 11.49,
           distanceKm: 1.2,
-          sourceType: 'PICKME' as const,
+          source: 'PICKME' as const,
+          isPickmeConnected: true,
           isBookable: true,
         },
       ],
@@ -25,7 +26,8 @@ describe('mergeNearbyResults', () => {
           latitude: 52.52,
           longitude: 13.4,
           distanceKm: 153,
-          sourceType: 'EXTERNAL' as const,
+          source: 'EXTERNAL' as const,
+          isPickmeConnected: false,
           externalProvider: 'GOOGLE_PLACES',
           externalPlaceId: 'place-1',
         },
@@ -46,7 +48,8 @@ describe('mergeNearbyResults', () => {
           address: 'Testplatz 10, Berlin',
           latitude: 52.53,
           longitude: 13.38,
-          sourceType: 'PICKME' as const,
+          source: 'PICKME' as const,
+          isPickmeConnected: true,
           isBookable: true,
         },
         {
@@ -56,9 +59,9 @@ describe('mergeNearbyResults', () => {
           address: 'Hauptstrasse 5, Berlin',
           latitude: 52.54,
           longitude: 13.39,
-          sourceType: 'PICKME' as const,
+          source: 'PICKME' as const,
+          isPickmeConnected: true,
           isBookable: false,
-          isPrivate: true,
         },
       ],
       [
@@ -69,7 +72,8 @@ describe('mergeNearbyResults', () => {
           address: 'Testplatz 10, Berlin',
           latitude: 52.5301,
           longitude: 13.3802,
-          sourceType: 'EXTERNAL' as const,
+          source: 'EXTERNAL' as const,
+          isPickmeConnected: false,
           externalProvider: 'GOOGLE_PLACES',
           externalPlaceId: 'place-1',
         },
@@ -80,7 +84,8 @@ describe('mergeNearbyResults', () => {
           address: 'Neue Schönhauser Strasse 2, Berlin',
           latitude: 52.55,
           longitude: 13.4,
-          sourceType: 'EXTERNAL' as const,
+          source: 'EXTERNAL' as const,
+          isPickmeConnected: false,
           externalProvider: 'GOOGLE_PLACES',
           externalPlaceId: 'place-2',
         },
@@ -92,8 +97,8 @@ describe('mergeNearbyResults', () => {
       'pickme-2',
       'external-2',
     ]);
-    expect(merged[0].sourceType).toBe('PICKME');
-    expect(merged[2].sourceType).toBe('EXTERNAL');
+    expect(merged[0].source).toBe('PICKME');
+    expect(merged[2].source).toBe('EXTERNAL');
     expect(merged.every((item) => item.name)).toBe(true);
   });
 });

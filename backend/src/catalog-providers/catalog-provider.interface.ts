@@ -1,5 +1,6 @@
 export interface CatalogSearchResult {
   id: string;
+  source: 'PICKME' | 'EXTERNAL';
   name: string;
   category?: string | null;
   address?: string | null;
@@ -7,12 +8,20 @@ export interface CatalogSearchResult {
   longitude?: number | null;
   rating?: number | null;
   reviewCount?: number | null;
-  openingStatus?: string | null;
-  photoReference?: string | null;
+  openNow?: boolean | null;
+  photoUrl?: string | null;
+  externalUrl?: string | null;
   phone?: string | null;
-  sourceType: 'PICKME' | 'EXTERNAL';
   externalProvider?: string | null;
   externalPlaceId?: string | null;
+  isPickmeConnected: boolean;
+}
+
+export class CatalogProviderConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CatalogProviderConfigurationError';
+  }
 }
 
 export interface CatalogProvider {

@@ -17,8 +17,9 @@ interface NearbyMapProps {
 export function NearbyMap({ latitude, longitude, address, onRequestLocation, items, isLoading, isError, onRetry, compact = false }: NearbyMapProps) {
   const locationLabel = address || 'Ваш район'
   const embedUrl = useMemo(() => {
-    const lat = latitude ?? 53.3191
-    const lon = longitude ?? 11.4836
+    if (latitude == null || longitude == null) return null
+    const lat = latitude
+    const lon = longitude
     const bbox = `${lon - 0.04},${lat - 0.03},${lon + 0.04},${lat + 0.03}`
     return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${lat},${lon}`
   }, [latitude, longitude])
@@ -36,13 +37,19 @@ export function NearbyMap({ latitude, longitude, address, onRequestLocation, ite
       </div>
 
       <div className={`mt-4 overflow-hidden rounded-[22px] border border-slate-200 bg-slate-50 ${compact ? 'h-[320px]' : 'h-[460px]'}`}>
-        <iframe
-          title="Карта рядом"
-          src={embedUrl}
-          className="h-full w-full border-0"
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-        />
+        {embedUrl ? (
+          <iframe
+            title="Карта рядом"
+            src={embedUrl}
+            className="h-full w-full border-0"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center px-4 text-center text-sm text-slate-500">
+            Определите локацию, чтобы увидеть реальные салоны на карте.
+          </div>
+        )}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
@@ -73,7 +80,7 @@ export function NearbyMap({ latitude, longitude, address, onRequestLocation, ite
                 </div>
               </div>
               <div className="mt-2 text-xs font-semibold text-slate-500">
-                {item.sourceType === 'EXTERNAL' ? 'Партнерский салон' : 'Проверенный профиль Пикми'}
+                {item.source === 'EXTERNAL' ? 'Внешний источник' : 'Партнер PickMe'}
               </div>
             </article>
           ))}

@@ -1,10 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { buildApiError } from '../common/api-error';
+import { NearbyCatalogQueryDto } from './dto/nearby-catalog-query.dto';
+import {
+  CatalogProviderConfigurationError,
+  CatalogSearchResult,
+} from '../catalog-providers/catalog-provider.interface';
 import { ExternalPlacesProvider } from '../catalog-providers/external-places.provider';
 
 export interface NearbyCatalogItem {
   id: string;
-  sourceType: 'PICKME' | 'EXTERNAL';
+  source: 'PICKME' | 'EXTERNAL';
   externalProvider?: string | null;
   externalPlaceId?: string | null;
   name: string;
@@ -15,21 +21,13 @@ export interface NearbyCatalogItem {
   distanceKm?: number | null;
   rating?: number | null;
   reviewCount?: number | null;
-  openingStatus?: string | null;
-  photoReference?: string | null;
+  openNow?: boolean | null;
+  photoUrl?: string | null;
+  externalUrl?: string | null;
   phone?: string | null;
-  isBookable?: boolean;
-  isPrivate?: boolean;
-  isVerified?: boolean;
-}
-
-export interface NearbyCatalogQuery {
-  latitude: number;
-  longitude: number;
-  radiusKm?: number;
-  query?: string;
-  category?: string;
-  limit?: number;
+  isPickmeConnected: boolean;
+  isBookable?: boolean | null;
+  isVerified?: boolean | null;
 }
 
 export function mergeNearbyResults(
@@ -48,8 +46,43 @@ export function mergeNearbyResults(
       left.externalPlaceId &&
       right.externalPlaceId &&
       left.externalPlaceId === right.externalPlaceId
-    )
+    ) {
       return true;
+    }
+
+    if (
+      left.latitude != null &&
+      left.longitude != null &&
+      right.latitude != null &&
+      right.longitude != null
+    ) {
+      const coordinateDistance =
+        Math.sqrt(
+          (left.latitude - right.latitude) ** 2 +
+            (left.longitude - right.longitude) ** 2,
+        ) * 111;
+      if (coordinateDistance <= 0.2) {
+        return true;
+      }
+    }
+
+    if (
+      left.name.trim().toLowerCase() &&
+      right.name.trim().toLowerCase() &&
+      (left.address ?? '').trim().toLowerCase() &&
+      (right.address ?? '').trim().toLowerCase()
+    ) {
+      const normalizedAddressA = (left.address ?? '').trim().toLowerCase();
+      const normalizedAddressB = (right.address ?? '').trim().toLowerCase();
+      if (normalizedAddressA === normalizedAddressB) {
+        const normalizedNameA = left.name.trim().toLowerCase();
+        const normalizedNameB = right.name.trim().toLowerCase();
+        if (normalizedNameA === normalizedNameB) {
+          return true;
+        }
+      }
+    }
+
     const normalizedNameA = left.name.trim().toLowerCase();
     const normalizedNameB = right.name.trim().toLowerCase();
     if (
@@ -84,8 +117,8 @@ export function mergeNearbyResults(
   }
 
   return seen.sort((a, b) => {
-    const priorityA = a.sourceType === 'PICKME' ? (a.isBookable ? 0 : 1) : 2;
-    const priorityB = b.sourceType === 'PICKME' ? (b.isBookable ? 0 : 1) : 2;
+    const priorityA = a.isPickmeConnected ? 0 : 1;
+    const priorityB = b.isPickmeConnected ? 0 : 1;
     if (priorityA !== priorityB) return priorityA - priorityB;
     return (
       (a.distanceKm ?? Number.MAX_SAFE_INTEGER) -
@@ -101,11 +134,12 @@ export class CatalogService {
     private readonly externalProvider: ExternalPlacesProvider,
   ) {}
 
-  async getNearby(query: NearbyCatalogQuery) {
-    const radiusKm = query.radiusKm ?? 5;
+  async getNearby(query: NearbyCatalogQueryDto) {
+    const radiusMeters = query.radius ?? query.radiusKm ?? 5000;
+    const radiusKm = radiusMeters / 1000;
     const limit = query.limit ?? 12;
 
-    const [pickmeSalons, pickmeMasters, external] = await Promise.allSettled([
+    const [pickmeSalons, pickmeMasters] = await Promise.all([
       this.prisma.salon.findMany({
         where: { isActive: true },
         include: { services: { where: { isActive: true }, take: 3 } },
@@ -115,25 +149,43 @@ export class CatalogService {
           salonLinks: { where: { isActive: true }, include: { salon: true } },
         },
       }),
-      this.externalProvider.search(query.query ?? 'hair salon', {
-        latitude: query.latitude,
-        longitude: query.longitude,
-        radiusKm,
-        category: query.category,
-        limit,
-      }),
     ]);
 
-    const pickmeSalonsResult =
-      pickmeSalons.status === 'fulfilled' ? pickmeSalons.value : [];
-    const pickmeMastersResult =
-      pickmeMasters.status === 'fulfilled' ? pickmeMasters.value : [];
-    const externalResult =
-      external.status === 'fulfilled' ? external.value : [];
+    let externalResult: CatalogSearchResult[] = [];
+    try {
+      externalResult = await this.externalProvider.search(
+        query.query ?? 'hair salon',
+        {
+          latitude: query.latitude,
+          longitude: query.longitude,
+          radiusKm,
+          category: query.category,
+          limit,
+        },
+      );
+    } catch (error) {
+      if (error instanceof CatalogProviderConfigurationError) {
+        throw new ServiceUnavailableException(
+          buildApiError(
+            503,
+            'CATALOG_PROVIDER_NOT_CONFIGURED',
+            'Внешний каталог не настроен. Проверьте конфигурацию provider key.',
+          ),
+        );
+      }
+      throw new ServiceUnavailableException(
+        buildApiError(
+          503,
+          'CATALOG_PROVIDER_UNAVAILABLE',
+          'Внешний каталог временно недоступен.',
+        ),
+      );
+    }
 
     const pickmeItems: NearbyCatalogItem[] = [
-      ...pickmeSalonsResult.map((salon) => ({
+      ...pickmeSalons.map((salon) => ({
         id: `pickme-salon:${salon.id}`,
+        source: 'PICKME' as const,
         name: salon.name,
         category: salon.country === 'Germany' ? 'beauty_salon' : 'beauty_salon',
         address: [salon.addressLine, salon.city, salon.postalCode]
@@ -143,14 +195,19 @@ export class CatalogService {
         longitude: salon.longitude,
         rating: salon.ratingAverage ?? null,
         reviewCount: salon.ratingCount ?? null,
-        sourceType: 'PICKME' as const,
+        openNow: null,
+        photoUrl: null,
+        externalUrl: null,
+        phone: salon.phone ?? null,
+        isPickmeConnected: true,
         isBookable: true,
-        isVerified: salon.isVerified,
+        isVerified: salon.isVerified ?? null,
       })),
-      ...pickmeMastersResult
+      ...pickmeMasters
         .filter((master) => master.isIndependent)
         .map((master) => ({
           id: `pickme-master:${master.id}`,
+          source: 'PICKME' as const,
           name: master.displayName,
           category: 'barber',
           address:
@@ -161,10 +218,13 @@ export class CatalogService {
           longitude: master.publicLongitude,
           rating: master.ratingAverage ?? null,
           reviewCount: master.reviewCount ?? null,
-          sourceType: 'PICKME' as const,
+          openNow: null,
+          photoUrl: master.avatarUrl ?? null,
+          externalUrl: null,
+          phone: null,
+          isPickmeConnected: true,
           isBookable: false,
-          isPrivate: true,
-          isVerified: master.isVerified,
+          isVerified: master.isVerified ?? null,
         })),
     ].map((item) => ({
       ...item,

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  CatalogProviderConfigurationError,
   CatalogProvider,
   CatalogSearchResult,
 } from './catalog-provider.interface';
@@ -52,9 +53,14 @@ export class ExternalPlacesProvider implements CatalogProvider {
     },
   ): Promise<CatalogSearchResult[]> {
     const provider = (
-      this.configService.get<string>('GEO_PROVIDER') ?? 'mapbox'
+      this.configService.get<string>('GEO_PROVIDER') ??
+      (process.env.NODE_ENV === 'test' ? 'fake' : 'mapbox')
     ).toLowerCase();
     const limit = Math.min(options?.limit ?? 5, 8);
+
+    if (provider === 'fake') {
+      return this.searchFake(query, options, limit);
+    }
 
     if (provider === 'google_places' || provider === 'google') {
       return this.searchGooglePlaces(query, options, limit);
@@ -76,7 +82,9 @@ export class ExternalPlacesProvider implements CatalogProvider {
   ): Promise<CatalogSearchResult[]> {
     const apiKey = this.configService.get<string>('GOOGLE_PLACES_API_KEY');
     if (!apiKey) {
-      return [];
+      throw new CatalogProviderConfigurationError(
+        'GOOGLE_PLACES_API_KEY is not configured',
+      );
     }
 
     const radiusMeters = Math.round((options?.radiusKm ?? 5) * 1000);
@@ -107,6 +115,7 @@ export class ExternalPlacesProvider implements CatalogProvider {
     };
     return (payload.results ?? []).slice(0, limit).map((item, index) => ({
       id: `external-google-${item.place_id ?? index}`,
+      source: 'EXTERNAL' as const,
       name: item.name ?? 'Nearby salon',
       category: category,
       address: item.vicinity ?? item.formatted_address ?? null,
@@ -114,17 +123,15 @@ export class ExternalPlacesProvider implements CatalogProvider {
       longitude: item.geometry?.location?.lng ?? null,
       rating: item.rating ?? null,
       reviewCount: item.user_ratings_total ?? null,
-      openingStatus:
-        item.opening_hours?.open_now != null
-          ? item.opening_hours.open_now
-            ? 'OPEN'
-            : 'CLOSED'
-          : null,
-      photoReference: item.photos?.[0]?.photo_reference ?? null,
+      openNow: item.opening_hours?.open_now ?? null,
+      photoUrl: null,
+      externalUrl: item.place_id
+        ? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(item.place_id)}`
+        : null,
       phone: null,
-      sourceType: 'EXTERNAL' as const,
       externalProvider: 'GOOGLE_PLACES',
       externalPlaceId: item.place_id ?? `google-${index}`,
+      isPickmeConnected: false,
     }));
   }
 
@@ -141,7 +148,9 @@ export class ExternalPlacesProvider implements CatalogProvider {
   ): Promise<CatalogSearchResult[]> {
     const apiToken = this.configService.get<string>('MAPBOX_SERVER_TOKEN');
     if (!apiToken) {
-      return [];
+      throw new CatalogProviderConfigurationError(
+        'MAPBOX_SERVER_TOKEN is not configured',
+      );
     }
 
     const url = new URL('https://api.mapbox.com/search/searchbox/v1/nearby');
@@ -169,6 +178,7 @@ export class ExternalPlacesProvider implements CatalogProvider {
     };
     return (payload.features ?? []).slice(0, limit).map((item, index) => ({
       id: `external-mapbox-${item.id ?? index}`,
+      source: 'EXTERNAL' as const,
       name: item.properties?.name ?? 'Nearby salon',
       category: options?.category ?? 'beauty_salon',
       address: item.properties?.address ?? null,
@@ -176,12 +186,50 @@ export class ExternalPlacesProvider implements CatalogProvider {
       longitude: item.geometry?.coordinates?.[0] ?? null,
       rating: null,
       reviewCount: null,
-      openingStatus: null,
-      photoReference: null,
+      openNow: null,
+      photoUrl: null,
+      externalUrl: item.id
+        ? `https://www.openstreetmap.org/?mlat=${item.geometry?.coordinates?.[1] ?? ''}&mlon=${item.geometry?.coordinates?.[0] ?? ''}#map=17/${item.geometry?.coordinates?.[1] ?? ''}/${item.geometry?.coordinates?.[0] ?? ''}`
+        : null,
       phone: null,
-      sourceType: 'EXTERNAL' as const,
       externalProvider: 'MAPBOX',
       externalPlaceId: item.id ?? `mapbox-${index}`,
+      isPickmeConnected: false,
     }));
+  }
+
+  private searchFake(
+    query: string,
+    options?: {
+      latitude?: number;
+      longitude?: number;
+      radiusKm?: number;
+      category?: string;
+      limit?: number;
+    },
+    limit = 5,
+  ): CatalogSearchResult[] {
+    const latitude = options?.latitude ?? 52.52;
+    const longitude = options?.longitude ?? 13.405;
+    return Array.from({ length: Math.max(1, Math.min(limit, 3)) }).map(
+      (_, index) => ({
+        id: `external-fake-${index + 1}`,
+        source: 'EXTERNAL',
+        name: `${query || 'Nearby'} Studio ${index + 1}`,
+        category: options?.category ?? 'hairdresser',
+        address: `Mock Street ${index + 1}`,
+        latitude: Number((latitude + index * 0.0015).toFixed(6)),
+        longitude: Number((longitude + index * 0.0012).toFixed(6)),
+        rating: 4.2 + index * 0.1,
+        reviewCount: 20 + index * 5,
+        openNow: index % 2 === 0,
+        photoUrl: null,
+        externalUrl: `https://example.test/places/${index + 1}`,
+        phone: null,
+        externalProvider: 'FAKE',
+        externalPlaceId: `fake-${index + 1}`,
+        isPickmeConnected: false,
+      }),
+    );
   }
 }

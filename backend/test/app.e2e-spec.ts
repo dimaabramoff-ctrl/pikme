@@ -12,6 +12,8 @@ const TEST_PASSWORD = 'TestPass123';
 
 describe('Auth and RBAC (e2e)', () => {
   let app: INestApplication;
+  const initialGeoProvider = process.env.GEO_PROVIDER;
+  const initialMapboxToken = process.env.MAPBOX_SERVER_TOKEN;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -36,11 +38,54 @@ describe('Auth and RBAC (e2e)', () => {
   });
 
   afterAll(async () => {
+    process.env.GEO_PROVIDER = initialGeoProvider;
+    process.env.MAPBOX_SERVER_TOKEN = initialMapboxToken;
     await app.close();
   });
 
   it('GET /api/health returns ok', async () => {
     await request(app.getHttpServer()).get('/api/health').expect(200);
+  });
+
+  it('GET /api/catalog/nearby validates query and returns nearby places', async () => {
+    process.env.GEO_PROVIDER = 'fake';
+
+    const response = await request(app.getHttpServer())
+      .get('/api/catalog/nearby')
+      .query({ latitude: 52.52, longitude: 13.405, radius: 5000 })
+      .expect(200);
+
+    expect(Array.isArray(response.body)).toBe(true);
+    const firstItem = response.body[0] as {
+      id: unknown;
+      source: unknown;
+      name: unknown;
+      isPickmeConnected: unknown;
+    };
+    expect(typeof firstItem.id).toBe('string');
+    expect(typeof firstItem.source).toBe('string');
+    expect(['PICKME', 'EXTERNAL']).toContain(firstItem.source);
+    expect(typeof firstItem.name).toBe('string');
+    expect(typeof firstItem.isPickmeConnected).toBe('boolean');
+  });
+
+  it('GET /api/catalog/nearby returns 400 for invalid radius/coordinates', async () => {
+    await request(app.getHttpServer())
+      .get('/api/catalog/nearby')
+      .query({ latitude: 120, longitude: 13.405, radius: 200 })
+      .expect(400);
+  });
+
+  it('GET /api/catalog/nearby returns provider configuration error when key is missing', async () => {
+    process.env.GEO_PROVIDER = 'mapbox';
+    delete process.env.MAPBOX_SERVER_TOKEN;
+
+    const response = await request(app.getHttpServer())
+      .get('/api/catalog/nearby')
+      .query({ latitude: 52.52, longitude: 13.405, radius: 5000 })
+      .expect(503);
+
+    expect(response.body.code).toBe('CATALOG_PROVIDER_NOT_CONFIGURED');
   });
 
   it('register customer -> 201, duplicate email -> 409', async () => {
