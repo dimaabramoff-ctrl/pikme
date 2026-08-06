@@ -19,6 +19,16 @@ import { FavoritesModule } from './favorites/favorites.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
 import { CatalogProvidersModule } from './catalog-providers/catalog-providers.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { BookingsModule } from './bookings/bookings.module';
+import { BusinessClaimsModule } from './business-claims/business-claims.module';
+import { BusinessAccessCodesModule } from './business-access-codes/business-access-codes.module';
+import { AdminModule } from './admin/admin.module';
+import { PartnerAccessRequestsModule } from './partner-access-requests/partner-access-requests.module';
+import { VouchersModule } from './vouchers/vouchers.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { SalonStaffDraftsModule } from './salon-staff-drafts/salon-staff-drafts.module';
+import { AppConfigModule } from './config/config.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 
 @Module({
   imports: [
@@ -50,6 +60,16 @@ import { CatalogModule } from './catalog/catalog.module';
     PortfolioModule,
     CatalogProvidersModule,
     CatalogModule,
+    BookingsModule,
+    BusinessClaimsModule,
+    BusinessAccessCodesModule,
+    PartnerAccessRequestsModule,
+    VouchersModule,
+    NotificationsModule,
+    AdminModule,
+    SalonStaffDraftsModule,
+    AppConfigModule,
+    SubscriptionsModule,
   ],
   controllers: [AppController],
   providers: [

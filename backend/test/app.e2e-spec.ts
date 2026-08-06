@@ -268,6 +268,126 @@ describe('Auth and RBAC (e2e)', () => {
       .expect(200);
   });
 
+  it('salon owner bookings endpoint returns own orders with customer phone and denies foreign owner', async () => {
+    const salonsResponse = await request(app.getHttpServer())
+      .get('/api/salons')
+      .expect(200);
+
+    const salons = salonsResponse.body.items as Array<{
+      id: string;
+      name: string;
+    }>;
+    const atelier = salons.find((item) => item.name === 'Mitte Style Lab');
+    expect(atelier).toBeDefined();
+
+    const adminLogin = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .set('x-forwarded-for', '10.0.0.42')
+      .send({ emailOrPhone: 'admin@example.test', password: TEST_PASSWORD })
+      .expect(200);
+
+    const ownOrders = await request(app.getHttpServer())
+      .get(`/api/bookings/salon/${atelier!.id}/orders`)
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken as string}`)
+      .expect(200);
+
+    expect(Array.isArray(ownOrders.body)).toBe(true);
+    if (ownOrders.body.length > 0) {
+      const firstOrder = ownOrders.body[0] as {
+        customerPhone: string;
+        bookingNumber: string;
+      };
+      expect(firstOrder.customerPhone).toMatch(/^\+49/);
+      expect(firstOrder.bookingNumber).toMatch(/^PM-2026-/);
+    }
+
+    const owner2Login = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .set('x-forwarded-for', '10.0.0.43')
+      .send({ emailOrPhone: 'owner2@example.test', password: TEST_PASSWORD })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get(`/api/bookings/salon/${atelier!.id}/orders`)
+      .set('Authorization', `Bearer ${owner2Login.body.accessToken as string}`)
+      .expect(403);
+
+    const customerLogin = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .set('x-forwarded-for', '10.0.0.44')
+      .send({ emailOrPhone: 'customer@example.test', password: TEST_PASSWORD })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get(`/api/bookings/salon/${atelier!.id}/orders`)
+      .set(
+        'Authorization',
+        `Bearer ${customerLogin.body.accessToken as string}`,
+      )
+      .expect(403);
+  });
+
+  it('salon owner sees customer phone only for own salon orders', async () => {
+    const ownerLogin = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .set('x-forwarded-for', '10.0.0.7')
+      .send({ emailOrPhone: 'admin@example.test', password: TEST_PASSWORD })
+      .expect(200);
+
+    const ownerToken = ownerLogin.body.accessToken as string;
+
+    const ownerProfile = await request(app.getHttpServer())
+      .get('/api/users/me')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200);
+
+    const ownSalonId = (
+      ownerProfile.body.salonAdminProfile as Array<{ salonId: string }>
+    )[0]?.salonId;
+
+    expect(typeof ownSalonId).toBe('string');
+
+    const ownOrders = await request(app.getHttpServer())
+      .get(`/api/bookings/salon/${ownSalonId as string}/orders`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200);
+
+    expect(Array.isArray(ownOrders.body)).toBe(true);
+
+    if (ownOrders.body.length > 0) {
+      expect(typeof ownOrders.body[0].customerPhone).toBe('string');
+      expect(ownOrders.body[0].customerPhone.length).toBeGreaterThan(0);
+    }
+
+    const customerLogin = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .set('x-forwarded-for', '10.0.0.9')
+      .send({ emailOrPhone: 'customer@example.test', password: TEST_PASSWORD })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get(`/api/bookings/salon/${ownSalonId as string}/orders`)
+      .set(
+        'Authorization',
+        `Bearer ${customerLogin.body.accessToken as string}`,
+      )
+      .expect(403);
+
+    const anotherOwnerLogin = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .set('x-forwarded-for', '10.0.0.8')
+      .send({ emailOrPhone: 'owner2@example.test', password: TEST_PASSWORD })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get(`/api/bookings/salon/${ownSalonId as string}/orders`)
+      .set(
+        'Authorization',
+        `Bearer ${anotherOwnerLogin.body.accessToken as string}`,
+      )
+      .expect(403);
+  });
+
   it('change password revokes all sessions', async () => {
     const firstLogin = await request(app.getHttpServer())
       .post('/api/auth/login')

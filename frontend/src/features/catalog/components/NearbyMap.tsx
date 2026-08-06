@@ -1,165 +1,184 @@
-import { useMemo } from 'react'
-import { Compass, Navigation } from 'lucide-react'
-import type { NearbyCatalogItem } from '../api/nearbyApi'
+import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Navigation } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { nearbyApi } from '../api/nearbyApi'
+import type { NearbyCatalogItem } from '@pickme/api-types'
+import { ClaimBusinessModal } from '../../business-claims/ClaimBusinessModal'
 
 interface NearbyMapProps {
   latitude: number | null
   longitude: number | null
   address: string
+  onAddressChange: (value: string) => void
   onRequestLocation: () => void
-  items: NearbyCatalogItem[]
-  isLoading: boolean
-  isError: boolean
-  onRetry: () => void
-  compact?: boolean
 }
 
-export function NearbyMap({ latitude, longitude, address, onRequestLocation, items, isLoading, isError, onRetry, compact = false }: NearbyMapProps) {
-  const locationLabel = address || 'Ваш район'
+export function NearbyMap({ latitude, longitude, address, onAddressChange, onRequestLocation }: NearbyMapProps) {
+  const [searchQuery, setSearchQuery] = useState('')
+  const [locationStatus, setLocationStatus] = useState('')
+  const [coordinates, setCoordinates] = useState({ latitude: 52.52, longitude: 13.405 })
+  const [claimTarget, setClaimTarget] = useState<NearbyCatalogItem | null>(null)
+  const [claimId, setClaimId] = useState<string | undefined>(undefined)
+  const fallbackLatitude = 52.52
+  const fallbackLongitude = 13.405
+  const effectiveLatitude = coordinates.latitude
+  const effectiveLongitude = coordinates.longitude
 
-  const markerItems = useMemo(
-    () =>
-      items.filter(
-        (item) => item.latitude != null && item.longitude != null,
-      ),
-    [items],
-  )
+  const { data, isPending, isError, refetch } = useQuery({
+    queryKey: ['nearby', effectiveLatitude, effectiveLongitude, searchQuery],
+    queryFn: () => nearbyApi.list({
+      latitude: effectiveLatitude,
+      longitude: effectiveLongitude,
+      radius: 5000,
+      ...(searchQuery.trim() ? { query: searchQuery.trim() } : {}),
+      category: 'hairdresser',
+      limit: 20,
+    }),
+    enabled: true,
+    staleTime: 30_000,
+  })
 
-  const bounds = useMemo(() => {
-    const coordinates: Array<{ latitude: number; longitude: number }> = []
-    if (latitude != null && longitude != null) {
-      coordinates.push({ latitude, longitude })
+  useEffect(() => {
+    const nextLatitude = latitude ?? fallbackLatitude
+    const nextLongitude = longitude ?? fallbackLongitude
+    setCoordinates({ latitude: nextLatitude, longitude: nextLongitude })
+
+    if (address && !['Standort wird ermittelt…', 'GPS deaktiviert'].includes(address)) {
+      setLocationStatus(address)
+    } else {
+      setLocationStatus('')
     }
-    markerItems.forEach((item) => {
-      coordinates.push({ latitude: item.latitude as number, longitude: item.longitude as number })
-    })
+  }, [address, latitude, longitude])
 
-    if (coordinates.length === 0) return null
+  const items = useMemo(() => data ?? [], [data])
 
-    const minLat = Math.min(...coordinates.map((point) => point.latitude))
-    const maxLat = Math.max(...coordinates.map((point) => point.latitude))
-    const minLon = Math.min(...coordinates.map((point) => point.longitude))
-    const maxLon = Math.max(...coordinates.map((point) => point.longitude))
-
-    const latPad = Math.max((maxLat - minLat) * 0.25, 0.005)
-    const lonPad = Math.max((maxLon - minLon) * 0.25, 0.005)
-
-    return {
-      minLat: minLat - latPad,
-      maxLat: maxLat + latPad,
-      minLon: minLon - lonPad,
-      maxLon: maxLon + lonPad,
-    }
-  }, [latitude, longitude, markerItems])
-
-  const project = (pointLat: number, pointLon: number) => {
-    if (!bounds) return { left: 50, top: 50 }
-    const lonRange = Math.max(bounds.maxLon - bounds.minLon, 0.0001)
-    const latRange = Math.max(bounds.maxLat - bounds.minLat, 0.0001)
-    const left = ((pointLon - bounds.minLon) / lonRange) * 100
-    const top = ((bounds.maxLat - pointLat) / latRange) * 100
-    return {
-      left: Math.min(Math.max(left, 2), 98),
-      top: Math.min(Math.max(top, 2), 98),
-    }
+  const handleClaimClick = (item: NearbyCatalogItem) => {
+    setClaimTarget(item)
+    setClaimId(undefined)
   }
 
-  const embedUrl = useMemo(() => {
-    if (latitude == null || longitude == null) return null
-    const lat = latitude
-    const lon = longitude
-    const bbox = `${lon - 0.04},${lat - 0.03},${lon + 0.04},${lat + 0.03}`
-    return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${lat},${lon}`
-  }, [latitude, longitude])
-
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-2">
+    <section className="space-y-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+      <div className="flex items-center justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Карта рядом</h2>
-          <p className="mt-1 text-xs text-slate-500">Текущая локация и ближайшие результаты на одном экране.</p>
+          <h2 className="text-lg font-bold text-slate-900">In Ihrer Nähe</h2>
+          <p className="text-sm text-slate-600">Echte Orte in der Nähe und PickMe-Betriebe in einer Übersicht.</p>
         </div>
-        <button onClick={onRequestLocation} className="rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700">
-          Вокруг меня
-        </button>
+        <button onClick={onRequestLocation} className="rounded-2xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">GPS bestimmen</button>
       </div>
 
-      <div className={`relative mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 ${compact ? 'h-[300px]' : 'h-[440px]'}`}>
-        {embedUrl ? (
-          <iframe
-            title="Карта рядом"
-            src={embedUrl}
-            className="h-full w-full border-0"
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center px-4 text-center text-sm text-slate-500">
-            Определите локацию, чтобы увидеть реальные салоны на карте.
-          </div>
-        )}
-
-        {embedUrl && bounds ? (
-          <div className="pointer-events-none absolute inset-0">
-            {latitude != null && longitude != null ? (
-              <div
-                className="absolute -translate-x-1/2 -translate-y-1/2"
-                style={project(latitude, longitude)}
-                aria-label="Ваша позиция"
-              >
-                <div className="h-4 w-4 rounded-full border-2 border-white bg-blue-600 shadow" />
-              </div>
-            ) : null}
-
-            {markerItems.map((item) => (
-              <div
-                key={`marker-${item.id}`}
-                className="absolute -translate-x-1/2 -translate-y-1/2"
-                style={project(item.latitude as number, item.longitude as number)}
-                aria-label={`Метка: ${item.name}`}
-                title={item.name}
-              >
-                <div className={`h-3.5 w-3.5 rounded-full border border-white shadow ${item.isPickmeConnected ? 'bg-emerald-600' : 'bg-amber-500'}`} />
-              </div>
-            ))}
-          </div>
-        ) : null}
+      <div className="rounded-2xl border border-slate-200 p-3">
+        <label className="text-sm font-semibold text-slate-700">Adresse manuell suchen</label>
+        <input
+          value={searchQuery}
+          onChange={(event) => {
+            setSearchQuery(event.target.value)
+            onAddressChange(event.target.value)
+          }}
+          placeholder="Adresse oder Stadtteil eingeben"
+          className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2"
+        />
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
-        <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-brand-700">
-          <Navigation size={12} /> {locationLabel}
-        </span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1"><span className="h-2 w-2 rounded-full bg-emerald-600" /> PickMe</span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1"><span className="h-2 w-2 rounded-full bg-amber-500" /> Внешние</span>
+      <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
+        <div className="flex items-center gap-2 font-semibold text-slate-900"><Navigation size={16} /> Aktueller Standort</div>
+        <div className="mt-1">{locationStatus || address || 'Keine Standortdaten verfügbar'}</div>
+        <div className="mt-1 text-xs text-slate-500">{effectiveLatitude.toFixed(4)}, {effectiveLongitude.toFixed(4)}</div>
       </div>
 
-      {isLoading ? <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-sm text-slate-600">Обновляем ближайшие варианты...</div> : null}
-      {isError ? <div className="mt-3 rounded-2xl bg-rose-50 p-3 text-sm text-rose-700">Не удалось загрузить варианты. <button className="font-semibold underline" onClick={onRetry}>Повторить</button></div> : null}
-      {!isLoading && !isError && items.length === 0 ? <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-sm text-slate-600">Пока нет результатов в этом районе.</div> : null}
+      {isPending ? <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">Orte werden geladen...</div> : null}
+      {isError ? <div className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">Der Nearby-Katalog konnte nicht geladen werden. <button className="font-semibold underline" onClick={() => refetch()}>Erneut versuchen</button></div> : null}
+      {!isPending && !isError && items.length === 0 ? <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">Keine passenden Orte in der Nähe gefunden.</div> : null}
 
-      {compact && items.length > 0 ? (
-        <div className="mt-3 space-y-2">
-          {items.slice(0, 2).map((item) => (
-            <article key={item.id} className="rounded-2xl border border-slate-200 p-3">
-              <div className="flex items-start justify-between gap-2">
+      <div className="space-y-2">
+        {items.map((item) => (
+          <div key={item.id}>
+            <article className="rounded-2xl border border-slate-200 p-3">
+              <div className={item.source === 'EXTERNAL' ? 'md:grid md:grid-cols-[minmax(0,1fr)_18rem] md:gap-4' : ''}>
                 <div>
-                  <h3 className="font-semibold text-slate-900">{item.name}</h3>
-                  <div className="mt-1 flex items-center gap-2 text-sm text-slate-600">
-                    <Compass size={14} /> {item.address || 'Адрес уточняется'}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <div className={`h-2.5 w-2.5 rounded-full ${item.source === 'PICKME' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                        <h3 className="font-semibold text-slate-900">{item.name}</h3>
+                      </div>
+                      <p className="mt-1 text-sm text-slate-600">{item.address || 'Adresse nicht angegeben'}</p>
+                    </div>
+                    <div className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                      {item.source === 'PICKME' ? 'PickMe' : 'Extern'}
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-3 text-sm text-slate-700">
+                    {item.distanceKm != null ? <span>{item.distanceKm} km</span> : null}
+                    {item.rating != null ? <span>★ {item.rating}</span> : null}
+                    {item.openNow != null ? <span>{item.openNow ? 'Geöffnet' : 'Geschlossen'}</span> : null}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {item.source === 'PICKME' ? (
+                      <Link
+                        to={`/salons/${item.id.replace('pickme-', '')}`}
+                        className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
+                      >
+                        Online buchen
+                      </Link>
+                    ) : (
+                      <Link
+                        to={`/salons/external/${encodeURIComponent(item.externalPlaceId ?? item.id)}`}
+                        state={{ name: item.name, address: item.address, rating: item.rating?.toString(), reviewCount: item.reviewCount?.toString(), distanceKm: item.distanceKm?.toString(), externalUrl: item.externalUrl, googlePlaceId: item.externalPlaceId }}
+                        className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700"
+                      >
+                        Mehr anzeigen
+                      </Link>
+                    )}
                   </div>
                 </div>
-                <div className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                  {item.distanceKm != null ? `${item.distanceKm.toFixed(1)} км` : 'Рядом'}
-                </div>
-              </div>
-              <div className="mt-2 text-xs font-semibold text-slate-500">
-                {item.source === 'EXTERNAL' ? 'Внешний каталог' : 'Партнер PickMe'}
+
+                {item.source === 'EXTERNAL' ? (
+                  <aside className="mt-3 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-3 md:mt-0">
+                    <div className="hidden sm:block">
+                      <div className="inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">FÜR UNTERNEHMEN</div>
+                      <h4 className="mt-2 text-lg font-bold text-slate-900">Ist das Ihr Salon?</h4>
+                      <p className="mt-1 text-sm text-slate-700">Übernehmen Sie Ihr Profil und verwalten Sie Termine, Mitarbeiter und freie Zeiten.</p>
+                      <div className="mt-2 inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">30 Tage kostenlos</div>
+                      <button
+                        onClick={() => handleClaimClick(item)}
+                        className="mt-3 w-full rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                        type="button"
+                      >
+                        Geschäft übernehmen
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 sm:hidden">
+                      <div className="text-sm font-semibold text-slate-900">Ist das Ihr Salon?</div>
+                      <button
+                        onClick={() => handleClaimClick(item)}
+                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white"
+                        type="button"
+                      >
+                        Jetzt übernehmen
+                      </button>
+                    </div>
+                  </aside>
+                ) : null}
               </div>
             </article>
-          ))}
-        </div>
-      ) : null}
+          </div>
+        ))}
+      </div>
+
+      {claimTarget && (
+        <ClaimBusinessModal
+          isOpen={!!claimTarget}
+          onClose={() => setClaimTarget(null)}
+          googlePlaceId={claimTarget.externalPlaceId ?? undefined}
+          salonName={claimTarget.name}
+          address={claimTarget.address ?? undefined}
+          claimId={claimId}
+          onClaimCreated={(id) => setClaimId(id)}
+        />
+      )}
     </section>
   )
 }

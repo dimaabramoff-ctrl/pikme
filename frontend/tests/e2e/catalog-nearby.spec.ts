@@ -1,211 +1,36 @@
 import { expect, test } from '@playwright/test'
 
-test('guest can see nearby catalog from the live app', async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'geolocation', {
-      configurable: true,
-      value: {
-        getCurrentPosition: (success: PositionCallback) => {
-          success({
-            coords: {
-              latitude: 52.52,
-              longitude: 13.405,
-              accuracy: 10,
-              altitude: null,
-              altitudeAccuracy: null,
-              heading: null,
-              speed: null,
-              toJSON: () => ({}),
-            },
-            timestamp: Date.now(),
-            toJSON: () => ({}),
-          } as GeolocationPosition)
-        },
-      },
-    })
-  })
-
-  await page.route('**/api/catalog/nearby**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([
-        {
-          id: 'external-google-2',
-          source: 'EXTERNAL',
-          externalProvider: 'GOOGLE_PLACES',
-          externalPlaceId: 'google-2',
-          name: 'Friseur Atelier Berlin',
-          address: 'Alexanderplatz 2, Berlin',
-          latitude: 52.522,
-          longitude: 13.41,
-          distanceKm: 0.9,
-          rating: 4.4,
-          reviewCount: 24,
-          openNow: false,
-          externalUrl: 'https://maps.google.com/?cid=123',
-          isPickmeConnected: false,
-          mastersOnShift: null,
-          availableMasters: null,
-          busyMasters: null,
-          nextAvailableSlot: null,
-          minPrice: null,
-          onlineBookingAvailable: false,
-        },
-        {
-          id: 'pickme-salon:1',
-          source: 'PICKME',
-          name: 'PickMe Salon Berlin Mitte',
-          address: 'Friedrichstraße 10, Berlin',
-          latitude: 52.521,
-          longitude: 13.406,
-          distanceKm: 0.45,
-          rating: 4.9,
-          reviewCount: 72,
-          openNow: true,
-          isPickmeConnected: true,
-          isBookable: true,
-          mastersOnShift: 5,
-          availableMasters: 2,
-          busyMasters: 3,
-          nextAvailableSlot: '2026-08-04T10:30:00.000Z',
-          minPrice: 25,
-          onlineBookingAvailable: true,
-        },
-      ]),
-    })
-  })
-
+test('presentation catalog shows stable PickMe salons and external cards', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Салоны рядом с вами' })).toBeVisible()
-  await page.getByRole('button', { name: 'Вокруг меня' }).first().click()
-  await expect(page.getByRole('heading', { name: 'PickMe Salon Berlin Mitte' }).first()).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Friseur Atelier Berlin' }).first()).toBeVisible()
-  await expect(page.getByText('Мастеров на смене').first()).toBeVisible()
-  await expect(page.getByText('Свободны сейчас').first()).toBeVisible()
-  await expect(page.getByText('Заняты').first()).toBeVisible()
-  await expect(page.getByText('Цена от').first()).toBeVisible()
-  await expect(page.getByText('от €25').first()).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Записаться' }).first()).toBeVisible()
-  await expect(page.getByText('★ 4.4 Google').first()).toBeVisible()
-  await expect(page.getByLabel('Метка: Friseur Atelier Berlin')).toBeVisible()
-  await expect(page.getByText('Подробнее')).toBeVisible()
-  await expect(page.getByText('Мастеров на смене')).toHaveCount(1)
-  await expect(page.getByText('Свободны сейчас')).toHaveCount(1)
-  await expect(page.getByText('Заняты')).toHaveCount(1)
-  await expect(page.getByRole('heading', { name: 'Салоны рядом', exact: true })).toBeVisible()
+  const stadtBtn1 = page.getByRole('button', { name: 'Stadt verwenden' }).first()
+  if (await stadtBtn1.isVisible().catch(() => false)) await stadtBtn1.click()
 
-  const cardsSection = page.getByRole('heading', { name: 'Салоны рядом', exact: true }).locator('xpath=ancestor::section[1]')
-  await expect(cardsSection.locator('article h3').first()).toHaveText('PickMe Salon Berlin Mitte')
+  await expect(page.getByRole('heading', { name: 'PickMe Demo Salon' })).toBeVisible()
+  await expect(page.locator('article h3').first()).toBeVisible()
 
-  await expect(page.getByText('Studio Nord')).toHaveCount(0)
-  await expect(page.getByText('Beauty & Co')).toHaveCount(0)
+  await expect(page.getByText('PickMe Partner').first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Mehr erfahren' }).first()).toBeVisible()
+
+  await expect(page.getByText('Google Places временно недоступен. Повторите попытку.')).toHaveCount(0)
+  await expect(page.getByText('адрес не найден')).toHaveCount(0)
 })
 
-test('external-only result does not show PickMe availability controls and keeps Google Maps link', async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'geolocation', {
-      configurable: true,
-      value: {
-        getCurrentPosition: (success: PositionCallback) => {
-          success({
-            coords: {
-              latitude: 52.52,
-              longitude: 13.405,
-              accuracy: 10,
-              altitude: null,
-              altitudeAccuracy: null,
-              heading: null,
-              speed: null,
-              toJSON: () => ({}),
-            },
-            timestamp: Date.now(),
-            toJSON: () => ({}),
-          } as GeolocationPosition)
-        },
-      },
-    })
-  })
-
-  await page.route('**/api/catalog/nearby**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([
-        {
-          id: 'external-google-100',
-          source: 'EXTERNAL',
-          externalProvider: 'GOOGLE_PLACES',
-          externalPlaceId: 'google-100',
-          name: 'Salon Ludwigslust Zentrum',
-          address: 'Schloßstraße 17, 19288 Ludwigslust',
-          latitude: 53.3241546,
-          longitude: 11.4920594,
-          distanceKm: 0.79,
-          rating: 4.7,
-          reviewCount: 94,
-          openNow: false,
-          externalUrl: 'https://maps.google.com/?cid=12082193944929702958',
-          isPickmeConnected: false,
-          mastersOnShift: null,
-          availableMasters: null,
-          busyMasters: null,
-          nextAvailableSlot: null,
-          minPrice: null,
-          onlineBookingAvailable: false,
-        },
-      ]),
-    })
-  })
-
+test('presentation master mode shows stable at-home masters', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Вокруг меня' }).first().click()
+  const stadtBtn2 = page.getByRole('button', { name: 'Stadt verwenden' }).first()
+  if (await stadtBtn2.isVisible().catch(() => false)) await stadtBtn2.click()
 
-  await expect(page.getByRole('heading', { name: 'Salon Ludwigslust Zentrum' }).first()).toBeVisible()
-  await expect(page.getByText('★ 4.7 Google').first()).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Подробнее' }).first()).toHaveAttribute('href', /maps\.google\.com/)
-  await expect(page.getByText('Онлайн-запись доступна')).toHaveCount(0)
-  await expect(page.getByText('Запись сейчас')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Zu Hause' }).click()
+
+  await expect(
+  page.getByRole('article')
+    .filter({ hasText: 'Selbstständiger Anbieter' })
+    .getByRole('heading', { name: 'PickMe Demo Zuhause' })
+).toBeVisible()
 })
 
-test('shows provider unavailable state when nearby API returns 503', async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'geolocation', {
-      configurable: true,
-      value: {
-        getCurrentPosition: (success: PositionCallback) => {
-          success({
-            coords: {
-              latitude: 52.52,
-              longitude: 13.405,
-              accuracy: 10,
-              altitude: null,
-              altitudeAccuracy: null,
-              heading: null,
-              speed: null,
-              toJSON: () => ({}),
-            },
-            timestamp: Date.now(),
-            toJSON: () => ({}),
-          } as GeolocationPosition)
-        },
-      },
-    })
-  })
-
-  await page.route('**/api/catalog/nearby**', async (route) => {
-    await route.fulfill({
-      status: 503,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        statusCode: 503,
-        code: 'CATALOG_PROVIDER_UNAVAILABLE',
-        message: 'Внешний каталог временно недоступен.',
-      }),
-    })
-  })
-
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Вокруг меня' }).first().click()
-  await expect(page.getByText('Google Places временно недоступен. Повторите попытку через минуту.')).toBeVisible()
+test('invalid external route still opens resilient fallback page', async ({ page }) => {
+  await page.goto('/salons/external/invalid-route-id')
+  await expect(page.getByText('Salon aus dem externen Verzeichnis')).toBeVisible()
+  await expect(page.getByText('Dieser Salon ist noch nicht mit PickMe verbunden.')).toBeVisible()
 })

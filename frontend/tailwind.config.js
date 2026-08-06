@@ -3,13 +3,20 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Plus Jakarta Sans', 'Segoe UI', 'sans-serif'],
+        display: ['Fraunces', 'Times New Roman', 'serif'],
+      },
       colors: {
         brand: {
-          50: '#e8f4f5',
-          100: '#d4ecee',
-          500: '#0f5a63',
-          600: '#0b4750',
-          700: '#08373d',
+          50: '#ddedee',
+          100: '#c8e0e1',
+          500: '#17666d',
+          600: '#13555b',
+          700: '#102f35',
+          accent: '#c56f4e',
+          gold: '#d8b27a',
+          milk: '#f7f3ec',
         },
       },
     },

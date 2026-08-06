@@ -1,4 +1,15 @@
-export type UserRole = 'CUSTOMER' | 'MASTER' | 'SALON_ADMIN' | 'SUPER_ADMIN'
+export type UserRole = 'CUSTOMER' | 'MASTER' | 'SALON_OWNER' | 'SALON_ADMIN' | 'SUPER_ADMIN'
+
+export interface SalonAdminMembership {
+  id: string
+  role?: string | null
+  isActive?: boolean
+  salon?: {
+    id: string
+    name: string
+    slug?: string
+  }
+}
 
 export interface CurrentUser {
   id: string
@@ -10,7 +21,7 @@ export interface CurrentUser {
   isVerified: boolean
   customerProfile?: unknown
   masterProfile?: unknown
-  salonAdminProfile?: unknown
+  salonAdminProfile?: SalonAdminMembership[]
 }
 
 export interface LoginPayload {
@@ -31,6 +42,49 @@ export interface RegisterMasterPayload extends RegisterCustomerPayload {
   specialization: string
   acceptsHomeVisits: boolean
   independent: boolean
+}
+
+export interface RegisterPartnerStaffServicePayload {
+  name: string
+  category: string
+  durationMinutes: number
+  price: number
+}
+
+export interface RegisterPartnerStaffPayload {
+  name: string
+  specialization?: string
+  experienceYears?: number
+  photoUrl?: string
+  services: RegisterPartnerStaffServicePayload[]
+}
+
+export interface RegisterPartnerPayload {
+  ownerName: string
+  ownerEmail: string
+  ownerPhone: string
+  ownerPassword?: string
+  ownerPasswordConfirmation?: string
+  salonName: string
+  salonAddressLine: string
+  salonCity: string
+  salonPostalCode: string
+  salonPhone?: string
+  salonCategory?: string
+  salonWorkHours?: string
+  existingGooglePlaceId?: string
+  ownershipConfirmed: boolean
+  staff?: RegisterPartnerStaffPayload[]
+  activateDemoTrial?: boolean
+  demoTrialDays?: number
+}
+
+export interface RegisterPartnerResponse {
+  success: boolean
+  userId: string
+  salonId: string
+  ownershipStatus: 'UNVERIFIED' | 'PENDING_VERIFICATION' | 'VERIFIED' | 'REJECTED'
+  message: string
 }
 
 export interface ChangePasswordPayload {

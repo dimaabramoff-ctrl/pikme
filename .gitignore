@@ -20,3 +20,9 @@ backend/coverage
 .prisma
 .DS_Store
 *.log
+
+# Local release and audit artifacts
+release/
+artifacts/
+*.zip
+.runtime/

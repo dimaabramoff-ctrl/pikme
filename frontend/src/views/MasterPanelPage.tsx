@@ -24,10 +24,10 @@ export function MasterPanelPage() {
 
   return (
     <div className="space-y-4 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-      <h1 className="text-xl font-bold text-slate-900">Панель мастера</h1>
-      <textarea value={biography} onChange={(e) => setBiography(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-3 py-2" placeholder="Биография" />
-      <button onClick={() => mutation.mutate({ biography })} className="rounded-2xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Сохранить</button>
-      <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">{master?.biography ?? 'Профиль мастера.'}</div>
+      <h1 className="text-xl font-bold text-slate-900">Meister-Bereich</h1>
+      <textarea value={biography} onChange={(e) => setBiography(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-3 py-2" placeholder="Biografie" />
+      <button onClick={() => mutation.mutate({ biography })} className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">Speichern</button>
+      <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">{master?.biography ?? 'Meisterprofil.'}</div>
     </div>
   )
 }

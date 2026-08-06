@@ -12,6 +12,27 @@ import { CreateSalonDto } from './dto/create-salon.dto';
 export class SalonsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private productionVisibilityWhere(): Prisma.SalonWhereInput {
+    if (process.env.NODE_ENV !== 'production') return {};
+    return {
+      NOT: [
+        { externalProvider: 'PICKME_TEST' },
+        {
+          cancellationPolicyJson: {
+            path: ['pickmeProfileFlags', 'isDemoProfile'],
+            equals: true,
+          },
+        },
+        {
+          cancellationPolicyJson: {
+            path: ['pickmeProfileFlags', 'isTestProfile'],
+            equals: true,
+          },
+        },
+      ],
+    };
+  }
+
   async list(params: {
     search?: string;
     city?: string;
@@ -24,8 +45,12 @@ export class SalonsService {
     limit?: number;
     offset?: number;
   }) {
+    const limit = this.normalizeListInt(params.limit, 20, 1, 50);
+    const offset = this.normalizeListInt(params.offset, 0, 0, Number.MAX_SAFE_INTEGER);
+
     const where: Prisma.SalonWhereInput = {
       isActive: true,
+      ...this.productionVisibilityWhere(),
       ...(params.search
         ? {
             OR: [
@@ -63,8 +88,8 @@ export class SalonsService {
       this.prisma.salon.findMany({
         where,
         orderBy,
-        take: params.limit ?? 20,
-        skip: params.offset ?? 0,
+        take: limit,
+        skip: offset,
         include: {
           photos: { orderBy: { sortOrder: 'asc' } },
           services: { where: { isActive: true }, take: 3 },
@@ -91,7 +116,7 @@ export class SalonsService {
 
   async getById(id: string) {
     const salon = await this.prisma.salon.findFirst({
-      where: { id, isActive: true },
+      where: { id, isActive: true, ...this.productionVisibilityWhere() },
       include: {
         photos: { orderBy: { sortOrder: 'asc' } },
         services: { where: { isActive: true } },
@@ -125,7 +150,7 @@ export class SalonsService {
 
   async getBySlug(slug: string) {
     const salon = await this.prisma.salon.findFirst({
-      where: { slug, isActive: true },
+      where: { slug, isActive: true, ...this.productionVisibilityWhere() },
       include: {
         photos: { orderBy: { sortOrder: 'asc' } },
         services: { where: { isActive: true } },
@@ -286,6 +311,17 @@ export class SalonsService {
       where: { id },
       data: { isActive: false },
     });
+  }
+
+  private normalizeListInt(
+    value: number | string | undefined,
+    fallback: number,
+    min: number,
+    max: number,
+  ) {
+    const parsed = typeof value === 'string' ? Number(value) : value;
+    if (typeof parsed !== 'number' || Number.isNaN(parsed)) return fallback;
+    return Math.max(min, Math.min(max, Math.floor(parsed)));
   }
 
   private resolveOrder(sort?: string) {

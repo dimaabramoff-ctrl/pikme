@@ -1,11 +1,11 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { useAuthStore } from '../features/auth/authStore'
 import { RoleRoute } from './RoleRoute'
 
 describe('RoleRoute', () => {
-  it('blocks route for wrong role', () => {
+  it('blocks route for wrong role', async () => {
     useAuthStore.setState({
       currentUser: {
         id: '1',
@@ -16,7 +16,7 @@ describe('RoleRoute', () => {
         isActive: true,
         isVerified: true,
       },
-      isAuthResolved: true,
+      authStatus: 'resolved',
       accessToken: 'token',
     })
 
@@ -31,6 +31,8 @@ describe('RoleRoute', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Profile page')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Profile page')).toBeInTheDocument()
+    })
   })
 })

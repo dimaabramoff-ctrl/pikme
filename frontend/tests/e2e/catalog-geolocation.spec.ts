@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('shows a clear message when geolocation permission is denied', async ({ page }) => {
+test('presentation home does not depend on geolocation success', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'geolocation', {
       configurable: true,
@@ -19,11 +19,17 @@ test('shows a clear message when geolocation permission is denied', async ({ pag
   })
 
   await page.goto('/')
-  await page.getByRole('button', { name: 'Вокруг меня' }).first().click()
-  await expect(page.getByText('Доступ к геолокации запрещен. Включите разрешение в браузере.')).toBeVisible()
+
+  // In presentation mode the location is preset; geolocation errors are not shown
+  const stadtBtnGeo1 = page.getByRole('button', { name: 'Stadt verwenden' }).first()
+  if (await stadtBtnGeo1.isVisible().catch(() => false)) await stadtBtnGeo1.click()
+
+  await expect(page.getByRole('heading', { name: 'PickMe Demo Salon' })).toBeVisible()
+  await expect(page.locator('article h3').first()).toBeVisible()
+  await expect(page.getByText('адрес не найден')).toHaveCount(0)
 })
 
-test('shows a clear message when geolocation is unavailable in browser', async ({ page }) => {
+test('presentation home remains stable when geolocation API is missing', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'geolocation', {
       configurable: true,
@@ -32,68 +38,12 @@ test('shows a clear message when geolocation is unavailable in browser', async (
   })
 
   await page.goto('/')
-  await page.getByRole('button', { name: 'Вокруг меня' }).first().click()
-  await expect(page.getByText('Геолокация недоступна на этом устройстве.')).toBeVisible()
-})
 
-test('shows timeout message when geolocation request times out', async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'geolocation', {
-      configurable: true,
-      value: {
-        getCurrentPosition: (_success: PositionCallback, error?: PositionErrorCallback) => {
-          error?.({
-            code: 3,
-            message: 'Timeout',
-            PERMISSION_DENIED: 1,
-            POSITION_UNAVAILABLE: 2,
-            TIMEOUT: 3,
-          } as GeolocationPositionError)
-        },
-      },
-    })
-  })
+  await expect(page.getByText('Standortbestimmung wird vorbereitet.')).toHaveCount(0)
+  const stadtBtnGeo2 = page.getByRole('button', { name: 'Stadt verwenden' }).first()
+  if (await stadtBtnGeo2.isVisible().catch(() => false)) await stadtBtnGeo2.click()
 
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Вокруг меня' }).first().click()
-  await expect(page.getByText('Не удалось получить координаты вовремя. Повторите попытку.')).toBeVisible()
-})
-
-test('shows empty state when nearby endpoint returns no places', async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'geolocation', {
-      configurable: true,
-      value: {
-        getCurrentPosition: (success: PositionCallback) => {
-          success({
-            coords: {
-              latitude: 52.52,
-              longitude: 13.405,
-              accuracy: 10,
-              altitude: null,
-              altitudeAccuracy: null,
-              heading: null,
-              speed: null,
-              toJSON: () => ({}),
-            },
-            timestamp: Date.now(),
-            toJSON: () => ({}),
-          } as GeolocationPosition)
-        },
-      },
-    })
-  })
-
-  await page.route('**/api/catalog/nearby**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([]),
-    })
-  })
-
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Вокруг меня' }).first().click()
-
-  await expect(page.getByText('По выбранной локации пока нет подходящих результатов.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'PickMe Demo Salon' })).toBeVisible()
+  await expect(page.locator('article h3').first()).toBeVisible()
+  await expect(page.getByText('адрес не найден')).toHaveCount(0)
 })

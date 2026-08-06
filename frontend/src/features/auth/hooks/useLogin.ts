@@ -12,7 +12,12 @@ export function useLogin() {
     mutationFn: authApi.login,
     onSuccess: async (result) => {
       setAccessToken(result.accessToken)
-      setCurrentUser(result.user)
+      try {
+        const fullUser = await authApi.me()
+        setCurrentUser(fullUser)
+      } catch {
+        setCurrentUser(result.user)
+      }
       setAuthResolved(true)
       await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] })
     },

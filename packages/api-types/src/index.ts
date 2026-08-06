@@ -43,4 +43,50 @@ export interface NearbyCatalogItem extends NearbyOperationalFields {
   isPickmeConnected: boolean;
   isBookable?: boolean | null;
   isVerified?: boolean | null;
+  profileFlags?: {
+    isDemoProfile?: boolean;
+    isTestProfile?: boolean;
+    isIndependentProvider?: boolean;
+    profileKind?: string | null;
+    labels?: string[];
+  } | null;
+}
+
+export interface NearbyCatalogDiagnostics {
+  googleRequestsMade: number;
+  googleRawResults: number;
+  uniqueResults: number;
+  returnedOnThisPage: number;
+  hasMore: boolean;
+  radiusMetersUsed: number;
+}
+
+export interface NearbyCatalogResponse {
+  items: NearbyCatalogItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  totalUniqueResults: number;
+  radiusMeters: number;
+  appliedFilters: string[];
+  diagnostics: NearbyCatalogDiagnostics;
+}
+
+export interface BookingSlotItem {
+  startsAt: string;
+  availableMasterIds: string[];
+}
+
+export interface BookingSlotsResponse {
+  salonId: string;
+  serviceId: string;
+  durationMinutes: number;
+  date: string;
+  slots: BookingSlotItem[];
+}
+
+export interface CreateBookingPayload {
+  salonId: string;
+  serviceId: string;
+  startsAt: string;
+  masterId?: string;
 }

@@ -40,7 +40,7 @@ export class RolesGuard implements CanActivate {
       if (request.user?.id) {
         await this.prisma.auditLog.create({
           data: {
-            userId: request.user.id,
+            actorUserId: request.user.id,
             action: 'ROLE_FORBIDDEN',
             entityType: 'AUTH',
             entityId: request.path,

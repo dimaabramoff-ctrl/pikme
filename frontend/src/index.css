@@ -1,29 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --brand-primary: #0f5a63;
-  --brand-primary-hover: #0b4750;
-  --brand-soft: #e5f3f4;
-  --background: #f4f6f7;
-  --surface: #FFFFFF;
-  --text-primary: #161c20;
-  --text-secondary: #66737d;
-  --border: #dde4e8;
-  --status-available: #1f9d55;
-  --status-soon: #f6b93b;
-  --status-busy: #e74c3c;
+  --brand-primary: #17666d;
+  --brand-primary-hover: #13555b;
+  --brand-dark: #102f35;
+  --brand-soft: #ddedee;
+  --brand-accent: #c56f4e;
+  --brand-gold: #d8b27a;
+  --background: #f7f3ec;
+  --surface: #ffffff;
+  --text-primary: #172326;
+  --text-secondary: #51666b;
+  --border: #d5e3e4;
+  --status-available: #2f8b5d;
+  --status-soon: #d8b27a;
+  --status-busy: #c95c4b;
   --status-offline: #95a5a6;
 }
 
 body {
   margin: 0;
-  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
   background: var(--background);
   color: var(--text-primary);
+  background-image:
+    radial-gradient(circle at 8% 5%, rgba(255, 255, 255, 0.85) 0, rgba(255, 255, 255, 0) 42%),
+    radial-gradient(circle at 95% 0, rgba(212, 227, 229, 0.55) 0, rgba(212, 227, 229, 0) 38%);
 }
 
 #root {
   min-height: 100svh;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: 'Fraunces', 'Times New Roman', serif;
+  letter-spacing: 0.01em;
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-[#17666D] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#13555B] active:bg-[#11484d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17666D]/35;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-xl border border-[#d5e3e4] bg-white px-4 py-2.5 text-sm font-semibold text-[#102F35] transition hover:bg-[#f1f6f6] active:bg-[#e8efef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17666D]/25;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-xl border border-[#dbe9ea] bg-[#eaf3f3] px-4 py-2.5 text-sm font-semibold text-[#17666D] transition hover:bg-[#deeced] active:bg-[#d6e6e7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17666D]/25;
+  }
+
+  .field-input {
+    @apply w-full rounded-xl border border-[#d5e3e4] bg-white px-3 py-2.5 text-sm text-[#172326] outline-none transition placeholder:text-[#8ba0a4] focus:border-[#17666D] focus:ring-2 focus:ring-[#17666D]/15;
+  }
+
+  .field-hint {
+    @apply mt-1 text-xs text-[#8a3f35];
+  }
 }

@@ -55,7 +55,7 @@ export class ApiClient {
         throw {
           statusCode: 503,
           code: 'NETWORK_ERROR',
-          message: 'Сервер временно недоступен',
+          message: 'Der Server ist gerade nicht verfügbar.',
           details: error instanceof Error ? error.message : undefined,
         } satisfies ApiError
       }
@@ -70,7 +70,7 @@ export class ApiClient {
           throw {
             statusCode: 503,
             code: 'NETWORK_ERROR',
-            message: 'Сервер временно недоступен',
+            message: 'Der Server ist gerade nicht verfügbar.',
           } satisfies ApiError
         }
 
@@ -89,7 +89,7 @@ export class ApiClient {
         throw {
           statusCode: 503,
           code: 'NETWORK_ERROR',
-          message: 'Сервер временно недоступен',
+          message: 'Der Server ist gerade nicht verfügbar.',
         } satisfies ApiError
       }
 
@@ -152,7 +152,7 @@ export class ApiClient {
       store.setAuthResolved(true)
       this.hasRefreshFailure = false
       return payload.accessToken
-    } catch {
+    } catch (error) {
       this.hasRefreshFailure = true
       return null
     }

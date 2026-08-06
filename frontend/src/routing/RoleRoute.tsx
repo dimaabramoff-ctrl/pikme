@@ -7,7 +7,12 @@ interface RoleRouteProps {
 }
 
 export function RoleRoute({ allowedRoles }: RoleRouteProps) {
+  const authStatus = useAuthStore((state) => state.authStatus)
   const user = useAuthStore((state) => state.currentUser)
+
+  if (authStatus === 'initializing') {
+    return <div className="rounded-2xl bg-white p-4 shadow-sm">Zugriff wird geprüft...</div>
+  }
 
   if (!user) {
     return <Navigate to="/login" replace />

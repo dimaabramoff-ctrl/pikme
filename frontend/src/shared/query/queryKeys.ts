@@ -29,3 +29,8 @@ export const favoriteKeys = {
   all: ['favorites'] as const,
   list: () => [...favoriteKeys.all] as const,
 }
+
+export const bookingKeys = {
+  all: ['bookings'] as const,
+  slots: (params: Record<string, unknown>) => [...bookingKeys.all, 'slots', { params }] as const,
+}

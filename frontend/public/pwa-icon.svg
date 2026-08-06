@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="PickMe">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#17666D"/>
+      <stop offset="100%" stop-color="#0F3E44"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <circle cx="256" cy="182" r="90" fill="#F7F2E9" opacity="0.95"/>
+  <path d="M128 358c0-71 57-128 128-128s128 57 128 128" fill="#F7F2E9" opacity="0.95"/>
+  <path d="M220 166h72v40h-72z" fill="#17666D"/>
+  <path d="M236 132h40v108h-40z" fill="#17666D"/>
+</svg>

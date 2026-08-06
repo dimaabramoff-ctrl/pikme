@@ -8,36 +8,36 @@ test.describe('Auth scenarios', () => {
   test('@auth customer login flow', async ({ page }) => {
     await page.goto('/login')
 
-    await page.getByLabel('Email или телефон').fill('customer@example.test')
-    await page.getByLabel('Пароль').fill('TestPass123')
-    await page.getByRole('button', { name: 'Войти' }).click()
+    await page.getByLabel('E-Mail oder Telefon').fill('customer@example.test')
+    await page.getByLabel('Passwort').fill('TestPass123')
+    await page.getByRole('button', { name: 'Anmelden' }).click()
 
     await expect(page).toHaveURL(/\/profile/)
-    await expect(page.getByText('Роль: CUSTOMER')).toBeVisible()
+    await expect(page.getByText('Rolle: CUSTOMER')).toBeVisible()
 
     await page.reload()
-    await expect(page.getByText('Роль: CUSTOMER')).toBeVisible()
+    await expect(page.getByText('Rolle: CUSTOMER')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Выйти', exact: true }).click()
+    await page.getByRole('button', { name: 'Abmelden', exact: true }).click()
     await expect(page).toHaveURL(/\/login/)
   })
 
   test('@auth role protection flow', async ({ page }) => {
     await page.goto('/login')
-    await page.getByLabel('Email или телефон').fill('customer@example.test')
-    await page.getByLabel('Пароль').fill('TestPass123')
-    await page.getByRole('button', { name: 'Войти' }).click()
+    await page.getByLabel('E-Mail oder Telefon').fill('customer@example.test')
+    await page.getByLabel('Passwort').fill('TestPass123')
+    await page.getByRole('button', { name: 'Anmelden' }).click()
     await expect(page).toHaveURL(/\/profile/)
 
     await page.goto('/master')
     await expect(page).toHaveURL(/\/profile/)
 
-    await page.getByRole('button', { name: 'Выйти', exact: true }).click()
+    await page.getByRole('button', { name: 'Abmelden', exact: true }).click()
 
     await page.goto('/login')
-    await page.getByLabel('Email или телефон').fill('master@example.test')
-    await page.getByLabel('Пароль').fill('TestPass123')
-    await page.getByRole('button', { name: 'Войти' }).click()
+    await page.getByLabel('E-Mail oder Telefon').fill('master@example.test')
+    await page.getByLabel('Passwort').fill('TestPass123')
+    await page.getByRole('button', { name: 'Anmelden' }).click()
     await page.goto('/master')
     await expect(page).toHaveURL(/\/login|\/master|\/profile/)
 
@@ -49,20 +49,20 @@ test.describe('Auth scenarios', () => {
     const unique = Date.now()
 
     await page.goto('/register')
-    await page.getByPlaceholder('Имя').fill(`Новый Клиент ${unique}`)
-    await page.getByPlaceholder('Email').fill(`register${unique}@example.test`)
-    await page.getByPlaceholder('Телефон').fill(`+49008${unique}`)
-    await page.locator('input[placeholder="Пароль"]').first().fill('Passw0rd123')
-    await page.locator('input[placeholder="Повторите пароль"]').first().fill('Passw0rd123')
-    await page.getByRole('button', { name: 'Зарегистрироваться' }).click()
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`Новый Клиент ${unique}`)
+    await page.getByRole('textbox', { name: 'Email', exact: true }).fill(`register${unique}@example.test`)
+    await page.getByRole('textbox', { name: 'Telefon', exact: true }).fill(`+49008${unique}`)
+    await page.getByRole('textbox', { name: 'Passwort', exact: true }).fill('Passw0rd123')
+    await page.getByRole('textbox', { name: 'Passwort wiederholen', exact: true }).fill('Passw0rd123')
+    await page.getByRole('button', { name: 'Registrieren', exact: true }).click()
 
     await expect(page).toHaveURL(/\/login/)
 
-    await page.getByLabel('Email или телефон').fill(`register${unique}@example.test`)
-    await page.getByLabel('Пароль').fill('Passw0rd123')
-    await page.getByRole('button', { name: 'Войти' }).click()
+    await page.getByLabel('E-Mail oder Telefon').fill(`register${unique}@example.test`)
+    await page.getByLabel('Passwort').fill('Passw0rd123')
+    await page.getByRole('button', { name: 'Anmelden' }).click()
 
     await expect(page).toHaveURL(/\/profile/)
-    await expect(page.getByText('Роль: CUSTOMER')).toBeVisible()
+    await expect(page.getByText('Rolle: CUSTOMER')).toBeVisible()
   })
 })

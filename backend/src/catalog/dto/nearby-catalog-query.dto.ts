@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
   Max,
   Min,
 } from 'class-validator';
@@ -24,7 +25,7 @@ export class NearbyCatalogQueryDto {
   @IsOptional()
   @IsNumber()
   @Min(500)
-  @Max(10_000)
+  @Max(15_000)
   radius?: number;
 
   // Backward-compatible alias for old clients using radiusKm.
@@ -36,7 +37,7 @@ export class NearbyCatalogQueryDto {
   @IsOptional()
   @IsNumber()
   @Min(500)
-  @Max(10_000)
+  @Max(15_000)
   radiusKm?: number;
 
   @Type(() => Number)
@@ -48,9 +49,26 @@ export class NearbyCatalogQueryDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(1024)
+  cursor?: string;
+
+  // Backward-compatible alias for clients using pageToken naming.
+  @IsOptional()
+  @IsString()
+  @MaxLength(1024)
+  pageToken?: string;
+
+  @IsOptional()
+  @IsString()
   query?: string;
 
   @IsOptional()
   @IsString()
   category?: string;
+
+  // Comma-separated list of filters.
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  filters?: string;
 }

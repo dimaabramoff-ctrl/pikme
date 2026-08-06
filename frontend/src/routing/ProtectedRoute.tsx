@@ -3,11 +3,11 @@ import { useAuthStore } from '../features/auth/authStore'
 
 export function ProtectedRoute() {
   const location = useLocation()
-  const isAuthResolved = useAuthStore((state) => state.isAuthResolved)
+  const authStatus = useAuthStore((state) => state.authStatus)
   const user = useAuthStore((state) => state.currentUser)
 
-  if (!isAuthResolved) {
-    return <div className="rounded-2xl bg-white p-4 shadow-sm">Проверяем сессию...</div>
+  if (authStatus === 'initializing') {
+    return <div className="rounded-2xl bg-white p-4 shadow-sm">Sitzung wird geprüft...</div>
   }
 
   if (!user) {

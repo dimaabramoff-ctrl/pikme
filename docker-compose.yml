@@ -15,12 +15,14 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: pickme_backend
     restart: unless-stopped
     env_file:
       - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql://pickme:pickme@postgres:5432/pickme?schema=public
     depends_on:
       - postgres
     ports:
@@ -28,12 +30,14 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: pickme_frontend
     restart: unless-stopped
     env_file:
       - ./frontend/.env
+    environment:
+      - BACKEND_URL=http://backend:3000
     depends_on:
       - backend
     ports:

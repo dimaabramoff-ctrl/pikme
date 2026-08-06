@@ -67,7 +67,7 @@ export class AuthService {
 
       await tx.auditLog.create({
         data: {
-          userId: createdUser.id,
+          actorUserId: createdUser.id,
           action: 'REGISTER_CUSTOMER_SUCCESS',
           entityType: 'AUTH',
           entityId: createdUser.id,
@@ -117,7 +117,7 @@ export class AuthService {
 
       await tx.auditLog.create({
         data: {
-          userId: createdUser.id,
+          actorUserId: createdUser.id,
           action: 'REGISTER_MASTER_SUCCESS',
           entityType: 'AUTH',
           entityId: createdUser.id,
@@ -154,7 +154,7 @@ export class AuthService {
     if (!isValidPassword) {
       await this.prisma.auditLog.create({
         data: {
-          userId: user.id,
+          actorUserId: user.id,
           action: 'LOGIN_FAILED',
           entityType: 'AUTH',
           entityId: user.id,
@@ -176,7 +176,7 @@ export class AuthService {
 
     await this.prisma.auditLog.create({
       data: {
-        userId: user.id,
+        actorUserId: user.id,
         action: 'LOGIN_SUCCESS',
         entityType: 'AUTH',
         entityId: user.id,
@@ -228,7 +228,7 @@ export class AuthService {
       });
       await this.prisma.auditLog.create({
         data: {
-          userId: session.userId,
+          actorUserId: session.userId,
           action: 'REFRESH_TOKEN_REUSE_DETECTED',
           entityType: 'AUTH',
           entityId: session.id,
@@ -293,7 +293,7 @@ export class AuthService {
 
         await this.prisma.auditLog.create({
           data: {
-            userId: payload.sub,
+            actorUserId: payload.sub,
             action: 'LOGOUT',
             entityType: 'AUTH',
             entityId: payload.jti,
@@ -317,7 +317,7 @@ export class AuthService {
 
     await this.prisma.auditLog.create({
       data: {
-        userId,
+        actorUserId: userId,
         action: 'LOGOUT_ALL',
         entityType: 'AUTH',
         entityId: userId,
@@ -371,7 +371,7 @@ export class AuthService {
 
       await tx.auditLog.create({
         data: {
-          userId: user.id,
+          actorUserId: user.id,
           action: 'PASSWORD_CHANGED',
           entityType: 'AUTH',
           entityId: user.id,
@@ -403,6 +403,15 @@ export class AuthService {
   private async issueSession(userId: string, role: Role) {
     const familyId = randomUUID();
     return this.rotateSession(null, familyId, userId, role);
+  }
+
+  /** Issue fresh tokens for a user whose role just changed (e.g. after redeem) */
+  async issueSessionPublic(userId: string, role: Role) {
+    return this.issueSession(userId, role);
+  }
+
+  setRefreshCookiePublic(response: Response, refreshToken: string) {
+    this.setRefreshCookie(response, refreshToken);
   }
 
   private async rotateSession(

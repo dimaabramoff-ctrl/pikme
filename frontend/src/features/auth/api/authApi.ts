@@ -6,6 +6,8 @@ import type {
   LoginPayload,
   RegisterCustomerPayload,
   RegisterMasterPayload,
+  RegisterPartnerPayload,
+  RegisterPartnerResponse,
 } from '../authTypes'
 
 export const authApi = {
@@ -18,6 +20,13 @@ export const authApi = {
 
   registerMaster(payload: RegisterMasterPayload) {
     return apiClient.request<CurrentUser>('/auth/register/master', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  registerPartner(payload: RegisterPartnerPayload) {
+    return apiClient.request<RegisterPartnerResponse>('/auth/register/partner', {
       method: 'POST',
       body: JSON.stringify(payload),
     })
